@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="fsl_active">#1A237E</color>
+    <color name="fsl_inactive">#263238</color>
+    <color name="speech_active">#1B5E20</color>
+    <color name="speech_inactive">#263238</color>
+    <color name="background_dark">#121212</color>
+    <color name="surface_dark">#1E1E1E</color>
+</resources>

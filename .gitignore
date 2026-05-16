@@ -1,0 +1,15 @@
+# Built files
+*.apk
+*.aab
+*.dex
+build/
+.gradle/
+local.properties
+
+# Large model files - copy manually to assets/ after cloning
+app/src/main/assets/akai_model.tflite
+app/src/main/assets/hand_landmarker.task
+
+# IDE
+.idea/
+*.iml

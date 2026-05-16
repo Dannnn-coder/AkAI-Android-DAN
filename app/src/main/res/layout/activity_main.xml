@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    tools:context=".MainActivity">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="#1E1E1E">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="AkAI"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvDeafLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="D"
+            android:textColor="#4FC3F7"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="@drawable/avatar_bg_deaf"
+            android:padding="8dp"
+            android:layout_marginEnd="8dp"/>
+
+        <TextView
+            android:id="@+id/tvHearingLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="H"
+            android:textColor="#81C784"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:background="@drawable/avatar_bg_hearing"
+            android:padding="8dp"/>
+
+    </LinearLayout>
+
+    <!-- Camera Feed -->
+    <androidx.camera.view.PreviewView
+        android:id="@+id/cameraPreview"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="2.5"
+        android:background="#000000"/>
+
+    <!-- Current Prediction Badge -->
+    <TextView
+        android:id="@+id/tvPrediction"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Show your hands..."
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:padding="12dp"
+        android:background="#1E1E1E"
+        android:gravity="center"/>
+
+    <!-- Conversation Thread -->
+    <ScrollView
+        android:id="@+id/scrollConversation"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="3"
+        android:padding="8dp"
+        android:background="#121212">
+
+        <LinearLayout
+            android:id="@+id/conversationContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="4dp"/>
+
+    </ScrollView>
+
+    <!-- Mode Switcher Panel -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:orientation="horizontal">
+
+        <!-- FSL Camera Button -->
+        <LinearLayout
+            android:id="@+id/btnFSLMode"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="#1A237E"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📷"
+                android:textSize="24sp"/>
+
+            <TextView
+                android:id="@+id/tvFSLStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="FSL Camera — Active"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"/>
+
+        </LinearLayout>
+
+        <!-- Speech Input Button -->
+        <LinearLayout
+            android:id="@+id/btnSpeechMode"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="#1B5E20"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎤"
+                android:textSize="24sp"/>
+
+            <TextView
+                android:id="@+id/tvSpeechStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Speech Input — Dormant"
+                android:textColor="#FFFFFF"
+                android:textSize="11sp"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>
