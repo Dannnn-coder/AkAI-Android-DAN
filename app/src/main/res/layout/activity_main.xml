@@ -22,7 +22,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="AkAI"
+            android:text="AkAI v3.0"
             android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -136,6 +136,20 @@
             android:background="#1B5E20"
             android:clickable="true"
             android:focusable="true">
+
+            <!-- Language Toggle -->
+            <TextView
+                android:id="@+id/tvLanguageToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🇵🇭 Filipino"
+                android:textColor="#FFFFFF"
+                android:textSize="10sp"
+                android:background="#2E7D32"
+                android:padding="4dp"
+                android:layout_marginBottom="2dp"
+                android:clickable="true"
+                android:focusable="true"/>
 
             <TextView
                 android:layout_width="wrap_content"

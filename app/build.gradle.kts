@@ -11,8 +11,8 @@ android {
         applicationId = "com.akai"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 3
+        versionName = "3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -68,6 +68,10 @@ dependencies {
 
     // Coroutines
     implementation(libs.coroutines.android)
+
+    // Vosk offline STT
+    implementation(libs.vosk)
+
 
     // Tests
     testImplementation(libs.junit)

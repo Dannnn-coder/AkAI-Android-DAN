@@ -31,12 +31,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSpeechMode: LinearLayout
     private lateinit var tvFSLStatus: TextView
     private lateinit var tvSpeechStatus: TextView
+    private lateinit var tvLanguageToggle: TextView
 
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var fslRecognitionService: FSLRecognitionService
+    private lateinit var voskSTTService: VoskSTTService
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var isFSLMode = true
+    private var isRecording = false
 
     companion object {
         private const val TAG = "AkAI"
@@ -51,14 +54,26 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        cameraPreview        = findViewById(R.id.cameraPreview)
-        tvPrediction         = findViewById(R.id.tvPrediction)
-        scrollConversation   = findViewById(R.id.scrollConversation)
+        cameraPreview         = findViewById(R.id.cameraPreview)
+        tvPrediction          = findViewById(R.id.tvPrediction)
+        scrollConversation    = findViewById(R.id.scrollConversation)
         conversationContainer = findViewById(R.id.conversationContainer)
-        btnFSLMode           = findViewById(R.id.btnFSLMode)
-        btnSpeechMode        = findViewById(R.id.btnSpeechMode)
-        tvFSLStatus          = findViewById(R.id.tvFSLStatus)
-        tvSpeechStatus       = findViewById(R.id.tvSpeechStatus)
+        btnFSLMode            = findViewById(R.id.btnFSLMode)
+        btnSpeechMode         = findViewById(R.id.btnSpeechMode)
+        tvFSLStatus           = findViewById(R.id.tvFSLStatus)
+        tvSpeechStatus        = findViewById(R.id.tvSpeechStatus)
+        tvLanguageToggle      = findViewById(R.id.tvLanguageToggle)
+
+        // Language toggle click
+        tvLanguageToggle.setOnClickListener {
+            if (voskSTTService.getCurrentLanguage() == VoskSTTService.Language.FILIPINO) {
+                voskSTTService.switchLanguage(VoskSTTService.Language.ENGLISH)
+                tvLanguageToggle.text = "🇺🇸 English"
+            } else {
+                voskSTTService.switchLanguage(VoskSTTService.Language.FILIPINO)
+                tvLanguageToggle.text = "🇵🇭 Filipino"
+            }
+        }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
@@ -66,7 +81,6 @@ class MainActivity : AppCompatActivity() {
         fslRecognitionService = FSLRecognitionService(this)
         fslRecognitionService.loadModel()
 
-        // Set callback — when a gesture is confirmed, add to conversation thread
         fslRecognitionService.onGestureRecognized = { gesture ->
             runOnUiThread {
                 tvPrediction.text = gesture.uppercase()
@@ -74,14 +88,70 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Initialize Vosk STT service — model loads lazily when speech mode is activated
+        voskSTTService = VoskSTTService(this)
+
+        voskSTTService.onModelReady = {
+            runOnUiThread {
+                tvSpeechStatus.text = "Speech Input — Tap to speak"
+                tvPrediction.text = "Tap mic to speak..."
+            }
+        }
+
+        voskSTTService.onTranscriptionResult = { text ->
+            runOnUiThread {
+                addHearingMessage(text)
+                tvPrediction.text = "Tap mic to speak..."
+            }
+        }
+
+        voskSTTService.onRecordingStateChanged = { state ->
+            runOnUiThread {
+                when (state) {
+                    VoskSTTService.RecordingState.RECORDING -> {
+                        tvSpeechStatus.text = "Recording... Tap to stop"
+                        btnSpeechMode.setBackgroundColor(
+                            ContextCompat.getColor(this, android.R.color.holo_red_dark)
+                        )
+                        tvPrediction.text = "Listening..."
+                    }
+                    VoskSTTService.RecordingState.PROCESSING -> {
+                        tvSpeechStatus.text = "Processing..."
+                        tvPrediction.text = "Processing speech..."
+                    }
+                    VoskSTTService.RecordingState.DORMANT -> {
+                        tvSpeechStatus.text = "Speech Input — Tap to speak"
+                        btnSpeechMode.setBackgroundColor(
+                            ContextCompat.getColor(this, R.color.speech_active)
+                        )
+                        tvPrediction.text = "Tap mic to speak..."
+                        isRecording = false
+                    }
+                }
+            }
+        }
+
         // Mode switcher
         btnFSLMode.setOnClickListener { switchToFSLMode() }
-        btnSpeechMode.setOnClickListener { switchToSpeechMode() }
+        btnSpeechMode.setOnClickListener { handleSpeechButtonClick() }
 
         if (allPermissionsGranted()) {
             startCamera()
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_PERMISSIONS)
+        }
+    }
+
+    private fun handleSpeechButtonClick() {
+        if (!isFSLMode) {
+            if (!isRecording) {
+                isRecording = true
+                voskSTTService.startRecording()
+            } else {
+                voskSTTService.stopRecording()
+            }
+        } else {
+            switchToSpeechMode()
         }
     }
 
@@ -96,6 +166,7 @@ class MainActivity : AppCompatActivity() {
 
             val imageAnalysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setTargetResolution(android.util.Size(640, 480))
                 .build()
                 .also {
                     it.setAnalyzer(cameraExecutor) { imageProxy ->
@@ -125,11 +196,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchToFSLMode() {
         isFSLMode = true
+        if (isRecording) {
+            voskSTTService.stopRecording()
+        }
         btnFSLMode.setBackgroundColor(ContextCompat.getColor(this, R.color.fsl_active))
         btnSpeechMode.setBackgroundColor(ContextCompat.getColor(this, R.color.speech_inactive))
         tvFSLStatus.text = "FSL Camera — Active"
         tvSpeechStatus.text = "Speech Input — Dormant"
         tvPrediction.text = "Show your hands..."
+        fslRecognitionService.clearBuffer()
     }
 
     private fun switchToSpeechMode() {
@@ -138,8 +213,10 @@ class MainActivity : AppCompatActivity() {
         btnFSLMode.setBackgroundColor(ContextCompat.getColor(this, R.color.fsl_inactive))
         btnSpeechMode.setBackgroundColor(ContextCompat.getColor(this, R.color.speech_active))
         tvFSLStatus.text = "FSL Camera — Dormant"
-        tvSpeechStatus.text = "Speech Input — Active"
-        tvPrediction.text = "Tap mic to speak..."
+        tvSpeechStatus.text = "Speech Input — Loading..."
+        tvPrediction.text = "Loading speech model..."
+        // Load Vosk model only when needed
+        voskSTTService.loadModel()
     }
 
     private fun addDeafMessage(text: String) {
@@ -183,6 +260,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         cameraExecutor.shutdown()
         fslRecognitionService.close()
+        voskSTTService.close()
         scope.cancel()
     }
 }
