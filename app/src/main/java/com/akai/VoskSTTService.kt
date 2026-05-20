@@ -40,14 +40,23 @@ class VoskSTTService(private val context: Context) {
     enum class RecordingState { DORMANT, RECORDING, PROCESSING }
     enum class Language { FILIPINO, ENGLISH }
 
+    var isModelLoading = false
+        private set
+
     fun loadModel() {
+        if (isModelLoading) return  // Prevent concurrent loads
+        isModelLoading = true
         scope.launch {
             try {
                 loadLanguageModel(currentLanguage)
                 Log.d(TAG, "Vosk model loaded: $currentLanguage")
-                withContext(Dispatchers.Main) { onModelReady?.invoke() }
+                withContext(Dispatchers.Main) {
+                    isModelLoading = false
+                    onModelReady?.invoke()
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load Vosk model: ${e.message}")
+                withContext(Dispatchers.Main) { isModelLoading = false }
             }
         }
     }
@@ -98,16 +107,9 @@ class VoskSTTService(private val context: Context) {
     }
 
     fun switchLanguage(language: Language) {
-        if (isRecording) return
+        if (isRecording || isModelLoading) return  // Prevent switch during load or recording
         currentLanguage = language
-        scope.launch {
-            try {
-                loadLanguageModel(language)
-                Log.d(TAG, "Switched to: $language")
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to switch language: ${e.message}")
-            }
-        }
+        loadModel()
     }
 
     @SuppressLint("MissingPermission")

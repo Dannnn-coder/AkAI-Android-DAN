@@ -57,8 +57,10 @@ class FSLRecognitionService(private val context: Context) {
     private var poseFrameCounter = 0
     private var handFrameCounter = 0
 
-    // Callback
-    var onGestureRecognized: ((String) -> Unit)? = null
+    // Callbacks
+    var onGestureRecognized: ((String) -> Unit)? = null  // word signs → direct to thread
+    var onLetterDetected: ((String) -> Unit)? = null     // letters → go to buffer
+    var onTop3Ready: ((List<Pair<String, Float>>) -> Unit)? = null  // top 3 predictions
 
     fun loadModel() {
         try {
@@ -184,6 +186,19 @@ class FSLRecognitionService(private val context: Context) {
 
         Log.d(TAG, "Inference: $predicted conf=$confidence")
 
+        // Build top 3 predictions and send to UI
+        val top3 = probs.indices
+            .sortedByDescending { probs[it] }
+            .take(3)
+            .map { idx ->
+                val label = if (actions[idx].startsWith("letter_"))
+                    actions[idx].removePrefix("letter_").uppercase()
+                else
+                    actions[idx].replace("_", " ")
+                Pair(label, probs[idx])
+            }
+        onTop3Ready?.invoke(top3)
+
         if (predHistory.size >= 6) predHistory.removeFirst()
         predHistory.addLast(predicted)
 
@@ -199,12 +214,15 @@ class FSLRecognitionService(private val context: Context) {
             lastOutputTime = now
             Log.d(TAG, "DETECTED: $voted (conf=$confidence)")
 
-            val displayText = if (voted.startsWith("letter_")) {
-                voted.removePrefix("letter_").uppercase()
+            if (voted.startsWith("letter_")) {
+                // Letter → send to word assembly buffer
+                val letter = voted.removePrefix("letter_").uppercase()
+                onLetterDetected?.invoke(letter)
             } else {
-                voted.replace("_", " ")
+                // Word sign → send directly to conversation thread
+                val displayText = voted.replace("_", " ")
+                onGestureRecognized?.invoke(displayText)
             }
-            onGestureRecognized?.invoke(displayText)
         }
     }
 
