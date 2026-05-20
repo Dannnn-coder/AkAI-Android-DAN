@@ -9,6 +9,10 @@ local.properties
 # Large model files - copy manually to assets/ after cloning
 app/src/main/assets/akai_model.tflite
 app/src/main/assets/hand_landmarker.task
+app/src/main/assets/pose_landmarker.task
+app/src/main/assets/ggml-tiny.bin
+app/src/main/assets/vosk-model-tl/
+app/src/main/assets/vosk-model-en/
 
 # IDE
 .idea/
