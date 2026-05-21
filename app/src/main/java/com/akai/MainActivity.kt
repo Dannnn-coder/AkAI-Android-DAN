@@ -135,7 +135,7 @@ class MainActivity : AppCompatActivity() {
         fslRecognitionService = FSLRecognitionService(this)
         fslRecognitionService.loadModel()
 
-        // Word signs → directly to conversation thread
+        // Word signs → directlyy to conversation thread
         fslRecognitionService.onGestureRecognized = { gesture ->
             runOnUiThread {
                 tvPrediction.text = gesture.uppercase()
