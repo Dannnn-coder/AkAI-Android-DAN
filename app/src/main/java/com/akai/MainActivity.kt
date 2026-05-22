@@ -135,11 +135,10 @@ class MainActivity : AppCompatActivity() {
         fslRecognitionService = FSLRecognitionService(this)
         fslRecognitionService.loadModel()
 
-        // Word signs → directlyy to conversation thread
+        // Word signs → show in Top 3, user must tap to confirm
         fslRecognitionService.onGestureRecognized = { gesture ->
             runOnUiThread {
                 tvPrediction.text = gesture.uppercase()
-                addDeafMessage(gesture)
             }
         }
 

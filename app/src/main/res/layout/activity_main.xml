@@ -135,7 +135,7 @@
                     android:layout_height="wrap_content"
                     android:text="A"
                     android:textColor="#FFFFFF"
-                    android:textSize="22sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"/>
                 <TextView
                     android:id="@+id/tvConf1"
@@ -166,7 +166,7 @@
                     android:layout_height="wrap_content"
                     android:text="B"
                     android:textColor="#FFFFFF"
-                    android:textSize="22sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"/>
                 <TextView
                     android:id="@+id/tvConf2"
@@ -196,7 +196,7 @@
                     android:layout_height="wrap_content"
                     android:text="C"
                     android:textColor="#FFFFFF"
-                    android:textSize="22sp"
+                    android:textSize="14sp"
                     android:textStyle="bold"/>
                 <TextView
                     android:id="@+id/tvConf3"
