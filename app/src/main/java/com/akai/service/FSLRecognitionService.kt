@@ -1,4 +1,4 @@
-package com.akai
+package com.akai.service
 
 import android.annotation.SuppressLint
 import android.content.Context

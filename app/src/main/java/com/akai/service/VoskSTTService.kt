@@ -1,4 +1,4 @@
-package com.akai
+package com.akai.service
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -67,7 +67,7 @@ class VoskSTTService(private val context: Context) {
 
         val modelFolder = when (language) {
             Language.FILIPINO -> "vosk-model-tl"
-            Language.ENGLISH  -> "vosk-model-en"
+            Language.ENGLISH -> "vosk-model-en"
         }
 
         val modelPath = copyModelToCache(modelFolder)

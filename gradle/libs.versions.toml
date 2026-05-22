@@ -14,6 +14,7 @@ mediapipe = "0.10.14"
 tflite = "2.14.0"
 coroutines = "1.7.3"
 vosk = "0.3.47"
+lifecycle = "2.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,6 +41,10 @@ tflite-select-tf-ops = { group = "org.tensorflow", name = "tensorflow-lite-selec
 
 # Coroutines
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+
+# Lifecycle ViewModel + LiveData
+lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
+lifecycle-livedata = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycle" }
 
 # Vosk offline STT
 vosk = { group = "com.alphacephei", name = "vosk-android", version.ref = "vosk" }

@@ -11,8 +11,8 @@ android {
         applicationId = "com.akai"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -65,6 +65,10 @@ dependencies {
     // TensorFlow Lite + LSTM support
     implementation(libs.tflite)
     implementation(libs.tflite.select.tf.ops)
+
+    // Lifecycle ViewModel + LiveData
+    implementation(libs.lifecycle.viewmodel)
+    implementation(libs.lifecycle.livedata)
 
     // Coroutines
     implementation(libs.coroutines.android)

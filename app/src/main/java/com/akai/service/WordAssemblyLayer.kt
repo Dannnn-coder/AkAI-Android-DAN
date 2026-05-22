@@ -1,4 +1,4 @@
-package com.akai
+package com.akai.service
 
 class WordAssemblyLayer {
 
