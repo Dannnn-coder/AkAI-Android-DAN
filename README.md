@@ -2,7 +2,7 @@
 
 A native Android app for real-time Filipino Sign Language (FSL) recognition using MediaPipe and TensorFlow Lite LSTM.
 
-**Team:** 0xACE | 2526-sem2-IT332-10 | CIT-U BSIT 3rd Year.
+**Team:** 0xACE | 2526-sem2-IT332-10 | CIT-U BSIT 3rd Year
 
 ---
 
