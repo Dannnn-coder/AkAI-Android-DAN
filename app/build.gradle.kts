@@ -76,6 +76,9 @@ dependencies {
     // Vosk offline STT
     implementation(libs.vosk)
 
+    // Splash Screen
+    implementation(libs.androidx.core.splashscreen)
+
 
     // Tests
     testImplementation(libs.junit)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Accent line below tagline — fades from blue to transparent left→right -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="linear"
+        android:angle="0"
+        android:startColor="#4A6FA5"
+        android:centerColor="#5A8FC5"
+        android:endColor="#004A6FA5" />
+    <corners android:radius="2dp" />
+</shape>

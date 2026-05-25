@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Subtle top-to-bottom gradient — dark navy fading into app background -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="linear"
+        android:angle="270"
+        android:startColor="#0D0D1A"
+        android:centerColor="#0F0F18"
+        android:endColor="#121212" />
+</shape>

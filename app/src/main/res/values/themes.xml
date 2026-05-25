@@ -6,4 +6,10 @@
     </style>
 
     <style name="Theme.AkAI" parent="Base.Theme.AkAI" />
+
+    <!-- Splash Screen theme — used by SplashActivity only -->
+    <style name="Theme.AkAI.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/background_dark</item>
+        <item name="postSplashScreenTheme">@style/Theme.AkAI</item>
+    </style>
 </resources>

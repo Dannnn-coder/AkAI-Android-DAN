@@ -30,6 +30,7 @@ class VoskSTTService(private val context: Context) {
     private var audioRecord: AudioRecord? = null
     private var isRecording = false
     private var currentLanguage = Language.FILIPINO
+    private var loadedLanguage: Language? = null  // tracks what's actually in memory
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -45,7 +46,12 @@ class VoskSTTService(private val context: Context) {
 
     fun loadModel() {
         if (isModelLoading) return  // Prevent concurrent loads
-        isModelLoading = true
+        // Only skip reload if the CORRECT language is already in memory
+        if (voskModel != null && recognizer != null && loadedLanguage == currentLanguage) {
+            onModelReady?.invoke()
+            return
+        }
+        isModelLoading = true  // Lock toggle until load completes
         scope.launch {
             try {
                 loadLanguageModel(currentLanguage)
@@ -62,17 +68,24 @@ class VoskSTTService(private val context: Context) {
     }
 
     private fun loadLanguageModel(language: Language) {
-        recognizer?.close()
-        voskModel?.close()
+        // Null out before closing — prevents stale non-null references
+        val oldRecognizer = recognizer
+        val oldModel      = voskModel
+        recognizer    = null
+        voskModel     = null
+        loadedLanguage = null  // clear until new model fully loads
+        oldRecognizer?.close()
+        oldModel?.close()
 
         val modelFolder = when (language) {
             Language.FILIPINO -> "vosk-model-tl"
             Language.ENGLISH -> "vosk-model-en"
         }
 
-        val modelPath = copyModelToCache(modelFolder)
-        voskModel   = Model(modelPath)
-        recognizer  = Recognizer(voskModel, SAMPLE_RATE.toFloat())
+        val modelPath  = copyModelToCache(modelFolder)
+        voskModel      = Model(modelPath)
+        recognizer     = Recognizer(voskModel, SAMPLE_RATE.toFloat())
+        loadedLanguage = language  // only mark loaded AFTER success
         Log.d(TAG, "Loaded model: $modelFolder")
     }
 
@@ -103,6 +116,20 @@ class VoskSTTService(private val context: Context) {
                     destFile.outputStream().use { output -> input.copyTo(output) }
                 }
             }
+        }
+    }
+
+    /**
+     * Preloads a specific language model silently in the background.
+     * Called during splash screen — no UI callbacks triggered.
+     * Safe to call from a coroutine on Dispatchers.IO.
+     */
+    fun preloadModel(language: Language) {
+        try {
+            loadLanguageModel(language)
+            Log.d(TAG, "Preloaded model: $language")
+        } catch (e: Exception) {
+            Log.e(TAG, "Preload failed for $language: ${e.message}")
         }
     }
 
@@ -155,6 +182,7 @@ class VoskSTTService(private val context: Context) {
 
             } catch (e: Exception) {
                 Log.e(TAG, "Recording error: ${e.message}")
+                isRecording = false  // reset flag so startRecording() can be called again
                 withContext(Dispatchers.Main) {
                     onRecordingStateChanged?.invoke(RecordingState.DORMANT)
                 }
@@ -176,8 +204,12 @@ class VoskSTTService(private val context: Context) {
         isRecording = false
         audioRecord?.stop()
         audioRecord?.release()
+        audioRecord = null
         recognizer?.close()
+        recognizer = null
         voskModel?.close()
+        voskModel = null
+        loadedLanguage = null
         scope.cancel()
     }
 }

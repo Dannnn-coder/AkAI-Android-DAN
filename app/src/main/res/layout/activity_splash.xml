@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/splash_background">
+
+    <!-- Soft blue radial glow — rendered behind the logo -->
+    <View
+        android:id="@+id/splashGlow"
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:layout_centerInParent="true"
+        android:background="@drawable/splash_glow"
+        android:alpha="0" />
+
+    <!-- Center content: logo + tagline + accent line -->
+    <LinearLayout
+        android:id="@+id/splashCenter"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/splashLogo"
+            android:layout_width="180dp"
+            android:layout_height="180dp"
+            android:src="@drawable/akai_logo"
+            android:scaleType="centerCrop"
+            android:contentDescription="AkAI Logo"
+            android:alpha="0" />
+
+        <TextView
+            android:id="@+id/splashTagline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/splash_tagline"
+            android:textColor="#9090A8"
+            android:textSize="13sp"
+            android:fontFamily="sans-serif-light"
+            android:letterSpacing="0.08"
+            android:gravity="center"
+            android:alpha="0" />
+
+        <!-- Accent line: expands from center outward after tagline appears -->
+        <View
+            android:id="@+id/splashAccentLine"
+            android:layout_width="140dp"
+            android:layout_height="2dp"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/splash_accent_line"
+            android:alpha="0" />
+
+    </LinearLayout>
+
+    <!-- Version label — bottom center -->
+    <TextView
+        android:id="@+id/splashVersion"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="36dp"
+        android:text="v1.6"
+        android:textColor="#383848"
+        android:textSize="11sp"
+        android:fontFamily="sans-serif-light"
+        android:letterSpacing="0.12"
+        android:alpha="0" />
+
+    <!-- Slow-load indicator: hidden until 2s threshold crossed -->
+    <LinearLayout
+        android:id="@+id/progressLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="72dp"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:alpha="0">
+
+        <ProgressBar
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:indeterminate="true"
+            android:indeterminateTint="#4A6FA5" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Loading models…"
+            android:textColor="#505060"
+            android:textSize="11sp"
+            android:fontFamily="sans-serif-light"
+            android:letterSpacing="0.04" />
+
+    </LinearLayout>
+
+</RelativeLayout>

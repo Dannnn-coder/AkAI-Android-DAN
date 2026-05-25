@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Wrapper for akai_logo used as adaptive icon foreground.
+    Small inset keeps the logo centered without shrinking it too much.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@drawable/akai_logo"
+        android:gravity="center"
+        android:insetLeft="10%"
+        android:insetRight="10%"
+        android:insetTop="10%"
+        android:insetBottom="10%" />
+</layer-list>

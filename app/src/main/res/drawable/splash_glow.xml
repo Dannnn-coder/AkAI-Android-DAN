@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Soft radial blue glow rendered behind the logo -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="140dp"
+        android:startColor="#334A6FA5"
+        android:endColor="#00000000" />
+    <size
+        android:width="280dp"
+        android:height="280dp" />
+</shape>
