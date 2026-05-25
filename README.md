@@ -56,7 +56,7 @@ app/src/main/
 ### Requirements
 - Android Studio Iguana 2023.2.1+
 - Android phone with API 26+ (ARM64)
-- Model files from the ML repo
+- Model files from the ML repo.
 
 ### Steps
 
