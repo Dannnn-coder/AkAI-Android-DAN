@@ -1,9 +1,13 @@
 package com.akai
 
 import android.Manifest
+import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -19,13 +23,17 @@ import androidx.core.content.ContextCompat
 import com.akai.data.ConversationEntry
 import com.akai.ui.ConversationBubbleWidget
 import com.akai.viewmodel.ConversationViewModel
+import com.akai.service.FSLRecognitionService
 import com.akai.service.VoskSTTService
+import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private lateinit var viewModel: ConversationViewModel
+    private var textToSpeech: TextToSpeech? = null
+    private var isTextToSpeechReady = false
 
     // Views
     private lateinit var cameraPreview: PreviewView
@@ -37,12 +45,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvFSLStatus: TextView
     private lateinit var tvSpeechStatus: TextView
     private lateinit var tvLanguageToggle: TextView
+    private lateinit var btnSettings: TextView
 
     // Letter buffer
     private lateinit var letterBufferPanel: LinearLayout
     private lateinit var letterChipsContainer: LinearLayout
     private lateinit var btnConfirmWord: TextView
     private lateinit var btnDeleteWord: TextView
+    private lateinit var tvSentenceDraft: TextView
+    private lateinit var btnFingerspell: TextView
+    private lateinit var btnSendSentence: TextView
+    private val sentenceWords = mutableListOf<String>()
+    private var isFingerspelling = false
 
     // Top 3
     private lateinit var top3Panel: LinearLayout
@@ -62,6 +76,14 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_PERMISSIONS = 100
+        private const val PREFS_NAME = "akai_settings"
+        private const val KEY_DEAF_BUBBLE_COLOR = "deaf_bubble_color"
+        private const val KEY_HEARING_BUBBLE_COLOR = "hearing_bubble_color"
+        private const val KEY_TTS_GENDER = "tts_gender"
+        private const val TTS_FEMALE = "female"
+        private const val TTS_MALE = "male"
+        private val DEFAULT_DEAF_BUBBLE_COLOR = Color.parseColor("#A7C7E7")
+        private val DEFAULT_HEARING_BUBBLE_COLOR = Color.parseColor("#B8E6C1")
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
@@ -73,10 +95,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         viewModel = ViewModelProvider(this)[ConversationViewModel::class.java]
+        textToSpeech = TextToSpeech(this, this)
 
         bindViews()
         setupTop3Panel()
+        setupSentenceBuilder()
         setupLetterBuffer()
+        setupSettings()
         setupModeButtons()
         setupFSLCallbacks()
         setupVoskCallbacks()
@@ -98,10 +123,14 @@ class MainActivity : AppCompatActivity() {
         tvFSLStatus           = findViewById(R.id.tvFSLStatus)
         tvSpeechStatus        = findViewById(R.id.tvSpeechStatus)
         tvLanguageToggle      = findViewById(R.id.tvLanguageToggle)
+        btnSettings           = findViewById(R.id.btnSettings)
         letterBufferPanel     = findViewById(R.id.letterBufferPanel)
         letterChipsContainer  = findViewById(R.id.letterChipsContainer)
         btnConfirmWord        = findViewById(R.id.btnConfirmWord)
         btnDeleteWord         = findViewById(R.id.btnDeleteWord)
+        tvSentenceDraft       = findViewById(R.id.tvSentenceDraft)
+        btnFingerspell        = findViewById(R.id.btnFingerspell)
+        btnSendSentence       = findViewById(R.id.btnSendSentence)
         top3Panel             = findViewById(R.id.top3Panel)
         btnChoice1            = findViewById(R.id.btnChoice1)
         btnChoice2            = findViewById(R.id.btnChoice2)
@@ -122,11 +151,41 @@ class MainActivity : AppCompatActivity() {
         btnDismissTop3.setOnClickListener { top3Panel.visibility = View.GONE }
     }
 
+    private fun setupSettings() {
+        btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+    }
+
+    private fun settingsPrefs(): SharedPreferences {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+    }
+
+    private fun getDeafBubbleColor(): Int {
+        return settingsPrefs().getInt(KEY_DEAF_BUBBLE_COLOR, DEFAULT_DEAF_BUBBLE_COLOR)
+    }
+
+    private fun getHearingBubbleColor(): Int {
+        return settingsPrefs().getInt(KEY_HEARING_BUBBLE_COLOR, DEFAULT_HEARING_BUBBLE_COLOR)
+    }
+
+    private fun getTtsGender(): String {
+        return settingsPrefs().getString(KEY_TTS_GENDER, TTS_FEMALE) ?: TTS_FEMALE
+    }
+
+    private fun setupSentenceBuilder() {
+        btnFingerspell.setOnClickListener { enterFingerspellMode() }
+        btnSendSentence.setOnClickListener { sendSentenceDraft() }
+        updateSentenceDraft()
+        exitFingerspellMode()
+    }
+
     private fun setupLetterBuffer() {
         btnConfirmWord.setOnClickListener {
             val word = viewModel.wordAssembly.confirm()
             if (word.isNotBlank()) {
-                viewModel.addDeafMessage(word)
+                addWordToSentence(word)
+                exitFingerspellMode()
                 tvPrediction.text = "Show your hands..."
             }
             updateLetterBuffer()
@@ -136,6 +195,57 @@ class MainActivity : AppCompatActivity() {
             updateLetterBuffer()
             tvPrediction.text = "Show your hands..."
         }
+    }
+
+    private fun addWordToSentence(word: String) {
+        val normalized = word.trim()
+        if (normalized.isBlank()) return
+        sentenceWords.add(normalized)
+        updateSentenceDraft()
+    }
+
+    private fun updateSentenceDraft() {
+        val sentence = sentenceWords.joinToString(" ")
+        if (sentence.isBlank()) {
+            tvSentenceDraft.text = getString(R.string.sentence_builder_empty)
+            tvSentenceDraft.setTextColor(Color.parseColor("#BDBDBD"))
+        } else {
+            tvSentenceDraft.text = sentence
+            tvSentenceDraft.setTextColor(Color.WHITE)
+        }
+    }
+
+    private fun sendSentenceDraft() {
+        val sentence = sentenceWords.joinToString(" ").trim()
+        if (sentence.isBlank()) {
+            Toast.makeText(this, "Add words before sending", Toast.LENGTH_SHORT).show()
+            return
+        }
+        viewModel.addDeafMessage(sentence)
+        sentenceWords.clear()
+        updateSentenceDraft()
+        tvPrediction.text = "Show your hands..."
+    }
+
+    private fun enterFingerspellMode() {
+        isFingerspelling = true
+        viewModel.wordAssembly.clear()
+        updateLetterBuffer()
+        viewModel.fslService.recognitionMode = FSLRecognitionService.RecognitionMode.LETTERS
+        viewModel.fslService.clearBuffer()
+        top3Panel.visibility = View.GONE
+        btnFingerspell.setBackgroundColor(Color.parseColor("#1A237E"))
+        btnFingerspell.text = "Spelling..."
+        tvPrediction.text = "Fingerspell a word..."
+    }
+
+    private fun exitFingerspellMode() {
+        isFingerspelling = false
+        viewModel.fslService.recognitionMode = FSLRecognitionService.RecognitionMode.WORDS
+        viewModel.fslService.clearBuffer()
+        top3Panel.visibility = View.GONE
+        btnFingerspell.setBackgroundColor(Color.parseColor("#3949AB"))
+        btnFingerspell.text = "Fingerspell"
     }
 
     private fun setupModeButtons() {
@@ -220,8 +330,103 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderBubble(entry: ConversationEntry) {
-        val bubble = ConversationBubbleWidget.create(this, entry)
+        val bubble = ConversationBubbleWidget.create(
+            context = this,
+            entry = entry,
+            onDeafMessageSpeak = ::speakDeafMessage,
+            deafBubbleColor = getDeafBubbleColor(),
+            hearingBubbleColor = getHearingBubbleColor()
+        )
         conversationContainer.addView(bubble)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::conversationContainer.isInitialized && lastRenderedCount > 0) {
+            refreshConversation()
+        }
+    }
+
+    private fun refreshConversation() {
+        val entries = viewModel.entries.value ?: emptyList()
+        conversationContainer.removeAllViews()
+        entries.forEach { entry -> renderBubble(entry) }
+        lastRenderedCount = entries.size
+        if (entries.isNotEmpty()) {
+            scrollConversation.post { scrollConversation.fullScroll(ScrollView.FOCUS_DOWN) }
+        }
+    }
+
+    override fun onInit(status: Int) {
+        if (status == TextToSpeech.SUCCESS) {
+            isTextToSpeechReady = configureTextToSpeechLanguage()
+        } else {
+            isTextToSpeechReady = false
+            Toast.makeText(this, "Text-to-speech unavailable on this device", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun configureTextToSpeechLanguage(): Boolean {
+        val preferredLocale = if (viewModel.voskService.getCurrentLanguage() == VoskSTTService.Language.FILIPINO) {
+            Locale("fil", "PH")
+        } else {
+            Locale.US
+        }
+        val tts = textToSpeech ?: return false
+        val preferredAvailability = tts.isLanguageAvailable(preferredLocale)
+        val selectedLocale = if (preferredAvailability >= TextToSpeech.LANG_AVAILABLE) {
+            preferredLocale
+        } else {
+            Locale.getDefault()
+        }
+        val selectedAvailability = tts.isLanguageAvailable(selectedLocale)
+        return if (selectedAvailability >= TextToSpeech.LANG_AVAILABLE) {
+            tts.language = selectedLocale
+            findPreferredVoice(selectedLocale)?.let { tts.voice = it }
+            applyTextToSpeechVoiceProfile()
+            true
+        } else {
+            false
+        }
+    }
+
+    private fun findPreferredVoice(locale: Locale): Voice? {
+        val voices = textToSpeech?.voices ?: return null
+        val localVoices = voices.filter { voice ->
+            !voice.isNetworkConnectionRequired && voice.locale.language == locale.language
+        }
+        val gender = getTtsGender()
+        val genderMatches = localVoices.filter { voice -> voiceMatchesGender(voice, gender) }
+        return genderMatches.firstOrNull { it.locale.country == locale.country }
+            ?: genderMatches.firstOrNull()
+            ?: localVoices.firstOrNull { it.locale.country == locale.country }
+            ?: localVoices.firstOrNull()
+    }
+
+    private fun voiceMatchesGender(voice: Voice, gender: String): Boolean {
+        val searchableText = (listOf(voice.name) + voice.features).joinToString(" ").lowercase(Locale.US)
+        return if (gender == TTS_FEMALE) {
+            searchableText.contains("female") || searchableText.contains("woman") || searchableText.contains("fem")
+        } else {
+            (searchableText.contains("male") && !searchableText.contains("female")) ||
+                (searchableText.contains("man") && !searchableText.contains("woman")) ||
+                searchableText.contains("masc")
+        }
+    }
+
+    private fun applyTextToSpeechVoiceProfile() {
+        val gender = getTtsGender()
+        textToSpeech?.setPitch(if (gender == TTS_MALE) 0.52f else 1.08f)
+        textToSpeech?.setSpeechRate(1.0f)
+    }
+
+    private fun speakDeafMessage(text: String) {
+        isTextToSpeechReady = configureTextToSpeechLanguage()
+        if (!isTextToSpeechReady) {
+            Toast.makeText(this, "Install an offline text-to-speech voice to read messages aloud", Toast.LENGTH_SHORT).show()
+            return
+        }
+        textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "deaf-message-${System.currentTimeMillis()}")
     }
 
     private fun handleSpeechButtonClick() {
@@ -241,6 +446,7 @@ class MainActivity : AppCompatActivity() {
     private fun switchToFSLMode() {
         if (viewModel.isRecording.value == true) viewModel.voskService.stopRecording()
         viewModel.switchToFSL()
+        exitFingerspellMode()
         top3Panel.visibility = View.GONE
         updateLetterBuffer()
         btnFSLMode.setBackgroundColor(ContextCompat.getColor(this, R.color.fsl_active))
@@ -252,6 +458,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun switchToSpeechMode() {
         viewModel.switchToSpeech()
+        exitFingerspellMode()
         top3Panel.visibility = View.GONE
         updateLetterBuffer()
         btnFSLMode.setBackgroundColor(ContextCompat.getColor(this, R.color.fsl_inactive))
@@ -295,6 +502,9 @@ class MainActivity : AppCompatActivity() {
         top3Labels = top3.map { it.first }
         val views = listOf(Pair(tvChoice1, tvConf1), Pair(tvChoice2, tvConf2), Pair(tvChoice3, tvConf3))
         val buttons = listOf(btnChoice1, btnChoice2, btnChoice3)
+        buttons.forEachIndexed { i, button ->
+            button.visibility = if (i < top3.size) View.VISIBLE else View.GONE
+        }
         top3.forEachIndexed { i, (label, conf) ->
             views[i].first.text = label.uppercase()
             views[i].second.text = "${(conf * 100).toInt()}%"
@@ -308,12 +518,12 @@ class MainActivity : AppCompatActivity() {
     private fun selectChoice(index: Int) {
         if (index >= top3Labels.size) return
         val selected = top3Labels[index]
-        if (selected.length == 1 || selected.all { it.isLetter() && it.isUpperCase() }) {
+        if (isFingerspelling) {
             viewModel.wordAssembly.addLetter(selected)
             updateLetterBuffer()
             tvPrediction.text = selected
         } else {
-            viewModel.addDeafMessage(selected)
+            addWordToSentence(selected)
             tvPrediction.text = selected.uppercase()
         }
         top3Panel.visibility = View.GONE
@@ -354,6 +564,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        textToSpeech?.stop()
+        textToSpeech?.shutdown()
         cameraExecutor.shutdown()
     }
 }
