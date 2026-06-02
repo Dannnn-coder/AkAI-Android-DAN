@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -18,7 +17,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.akai.data.ConversationEntry
-import com.akai.data.SenderType
+import com.akai.ui.ConversationBubbleWidget
 import com.akai.viewmodel.ConversationViewModel
 import com.akai.service.VoskSTTService
 import java.util.concurrent.ExecutorService
@@ -212,12 +211,7 @@ class MainActivity : AppCompatActivity() {
     private fun observeViewModel() {
         viewModel.entries.observe(this) { entries ->
             val newEntries = entries.drop(lastRenderedCount)
-            newEntries.forEach { entry ->
-                when (entry.sender) {
-                    SenderType.DEAF    -> renderDeafBubble(entry)
-                    SenderType.HEARING -> renderHearingBubble(entry)
-                }
-            }
+            newEntries.forEach { entry -> renderBubble(entry) }
             lastRenderedCount = entries.size
             if (newEntries.isNotEmpty()) {
                 scrollConversation.post { scrollConversation.fullScroll(ScrollView.FOCUS_DOWN) }
@@ -225,19 +219,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderDeafBubble(entry: ConversationEntry) {
-        val inflater = LayoutInflater.from(this)
-        val bubble = inflater.inflate(R.layout.item_message_deaf, conversationContainer, false)
-        bubble.findViewById<TextView>(R.id.tvMessage).text = entry.text
-        bubble.findViewById<TextView>(R.id.tvTimestamp).text = entry.timestamp
-        conversationContainer.addView(bubble)
-    }
-
-    private fun renderHearingBubble(entry: ConversationEntry) {
-        val inflater = LayoutInflater.from(this)
-        val bubble = inflater.inflate(R.layout.item_message_hearing, conversationContainer, false)
-        bubble.findViewById<TextView>(R.id.tvMessage).text = entry.text
-        bubble.findViewById<TextView>(R.id.tvTimestamp).text = entry.timestamp
+    private fun renderBubble(entry: ConversationEntry) {
+        val bubble = ConversationBubbleWidget.create(this, entry)
         conversationContainer.addView(bubble)
     }
 
