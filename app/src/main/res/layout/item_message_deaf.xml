@@ -41,4 +41,16 @@
 
     </LinearLayout>
 
+    <ImageButton
+        android:id="@+id/btnSpeakMessage"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="top"
+        android:layout_marginStart="6dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/play_deaf_message_audio"
+        android:padding="8dp"
+        android:scaleType="center"
+        android:src="@drawable/ic_volume_up_deaf" />
+
 </LinearLayout>

@@ -21,6 +21,8 @@ import java.util.ArrayDeque
 
 class FSLRecognitionService(private val context: Context) {
 
+    enum class RecognitionMode { WORDS, LETTERS }
+
     private val TAG = "FSLRecognitionService"
 
     // Model config
@@ -45,6 +47,8 @@ class FSLRecognitionService(private val context: Context) {
     private var frameCount     = 0
     private var lastOutput     = ""
     private var lastOutputTime = 0L
+    @Volatile
+    var recognitionMode = RecognitionMode.WORDS
     private val COOLDOWN_MS    = 800L
     private var noHandCount    = 0
     private val NO_HAND_TOLERANCE = 5  // Allow 5 frames of no hand before clearing
@@ -180,14 +184,20 @@ class FSLRecognitionService(private val context: Context) {
         interpreter?.run(input, output)
 
         val probs      = output[0]
-        val maxIdx     = probs.indices.maxByOrNull { probs[it] } ?: return
+        val candidateIndices = probs.indices.filter { idx ->
+            val isLetter = actions[idx].startsWith("letter_")
+            if (recognitionMode == RecognitionMode.LETTERS) isLetter else !isLetter
+        }
+        if (candidateIndices.isEmpty()) return
+
+        val maxIdx     = candidateIndices.maxByOrNull { probs[it] } ?: return
         val confidence = probs[maxIdx]
         val predicted  = actions[maxIdx]
 
         Log.d(TAG, "Inference: $predicted conf=$confidence")
 
         // Build top 3 predictions and send to UI
-        val top3 = probs.indices
+        val top3 = candidateIndices
             .sortedByDescending { probs[it] }
             .take(3)
             .map { idx ->
@@ -214,11 +224,11 @@ class FSLRecognitionService(private val context: Context) {
             lastOutputTime = now
             Log.d(TAG, "DETECTED: $voted (conf=$confidence)")
 
-            if (voted.startsWith("letter_")) {
+            if (recognitionMode == RecognitionMode.LETTERS && voted.startsWith("letter_")) {
                 // Letter → send to word assembly buffer
                 val letter = voted.removePrefix("letter_").uppercase()
                 onLetterDetected?.invoke(letter)
-            } else {
+            } else if (recognitionMode == RecognitionMode.WORDS && !voted.startsWith("letter_")) {
                 // Word sign → send directly to conversation thread
                 val displayText = voted.replace("_", " ")
                 onGestureRecognized?.invoke(displayText)

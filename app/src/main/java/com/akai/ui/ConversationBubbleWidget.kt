@@ -10,10 +10,16 @@ abstract class ConversationBubbleWidget(context: Context) : LinearLayout(context
     abstract fun render(entry: ConversationEntry)
 
     companion object {
-        fun create(context: Context, entry: ConversationEntry): ConversationBubbleWidget {
+        fun create(
+            context: Context,
+            entry: ConversationEntry,
+            onDeafMessageSpeak: ((String) -> Unit)? = null,
+            deafBubbleColor: Int? = null,
+            hearingBubbleColor: Int? = null
+        ): ConversationBubbleWidget {
             return when (entry.sender) {
-                SenderType.DEAF    -> DeafBubbleWidget(context).apply { render(entry) }
-                SenderType.HEARING -> HearingBubbleWidget(context).apply { render(entry) }
+                SenderType.DEAF    -> DeafBubbleWidget(context, onDeafMessageSpeak, deafBubbleColor).apply { render(entry) }
+                SenderType.HEARING -> HearingBubbleWidget(context, hearingBubbleColor).apply { render(entry) }
             }
         }
     }
