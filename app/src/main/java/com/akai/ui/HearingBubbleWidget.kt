@@ -1,7 +1,6 @@
 package com.akai.ui
 
 import android.content.Context
-import android.graphics.Color
 import android.view.LayoutInflater
 import android.widget.TextView
 import com.akai.R
@@ -24,12 +23,5 @@ class HearingBubbleWidget(
             messageView.setTextColor(readableTextColor(it))
         }
         findViewById<TextView>(R.id.tvTimestamp).text = entry.timestamp
-    }
-
-    private fun readableTextColor(backgroundColor: Int): Int {
-        val luminance = 0.299 * Color.red(backgroundColor) +
-            0.587 * Color.green(backgroundColor) +
-            0.114 * Color.blue(backgroundColor)
-        return if (luminance > 170) Color.BLACK else Color.WHITE
     }
 }

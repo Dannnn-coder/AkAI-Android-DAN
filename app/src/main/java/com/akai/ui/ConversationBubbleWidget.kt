@@ -2,6 +2,7 @@ package com.akai.ui
 
 import android.content.Context
 import android.widget.LinearLayout
+import android.graphics.Color
 import com.akai.data.ConversationEntry
 import com.akai.data.SenderType
 
@@ -10,6 +11,13 @@ abstract class ConversationBubbleWidget(context: Context) : LinearLayout(context
     abstract fun render(entry: ConversationEntry)
 
     companion object {
+        fun readableTextColor(backgroundColor: Int): Int {
+            val luminance = 0.299 * Color.red(backgroundColor) +
+                0.587 * Color.green(backgroundColor) +
+                0.114 * Color.blue(backgroundColor)
+            return if (luminance > 170) Color.BLACK else Color.WHITE
+        }
+
         fun create(
             context: Context,
             entry: ConversationEntry,

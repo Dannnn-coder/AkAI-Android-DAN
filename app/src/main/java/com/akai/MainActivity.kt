@@ -20,6 +20,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.akai.data.AppPreferences
 import com.akai.data.ConversationEntry
 import com.akai.ui.ConversationBubbleWidget
 import com.akai.viewmodel.ConversationViewModel
@@ -76,14 +77,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     companion object {
         private const val REQUEST_PERMISSIONS = 100
-        private const val PREFS_NAME = "akai_settings"
-        private const val KEY_DEAF_BUBBLE_COLOR = "deaf_bubble_color"
-        private const val KEY_HEARING_BUBBLE_COLOR = "hearing_bubble_color"
-        private const val KEY_TTS_GENDER = "tts_gender"
-        private const val TTS_FEMALE = "female"
-        private const val TTS_MALE = "male"
-        private val DEFAULT_DEAF_BUBBLE_COLOR = Color.parseColor("#A7C7E7")
-        private val DEFAULT_HEARING_BUBBLE_COLOR = Color.parseColor("#B8E6C1")
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
@@ -158,19 +151,19 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     private fun settingsPrefs(): SharedPreferences {
-        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        return getSharedPreferences(AppPreferences.PREFS_NAME, MODE_PRIVATE)
     }
 
     private fun getDeafBubbleColor(): Int {
-        return settingsPrefs().getInt(KEY_DEAF_BUBBLE_COLOR, DEFAULT_DEAF_BUBBLE_COLOR)
+        return settingsPrefs().getInt(AppPreferences.KEY_DEAF_BUBBLE_COLOR, AppPreferences.DEFAULT_DEAF_BUBBLE_COLOR)
     }
 
     private fun getHearingBubbleColor(): Int {
-        return settingsPrefs().getInt(KEY_HEARING_BUBBLE_COLOR, DEFAULT_HEARING_BUBBLE_COLOR)
+        return settingsPrefs().getInt(AppPreferences.KEY_HEARING_BUBBLE_COLOR, AppPreferences.DEFAULT_HEARING_BUBBLE_COLOR)
     }
 
     private fun getTtsGender(): String {
-        return settingsPrefs().getString(KEY_TTS_GENDER, TTS_FEMALE) ?: TTS_FEMALE
+        return settingsPrefs().getString(AppPreferences.KEY_TTS_GENDER, AppPreferences.TTS_FEMALE) ?: AppPreferences.TTS_FEMALE
     }
 
     private fun setupSentenceBuilder() {
@@ -396,7 +389,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
             !voice.isNetworkConnectionRequired && voice.locale.language == locale.language
         }
         val gender = getTtsGender()
-        val genderMatches = localVoices.filter { voice -> voiceMatchesGender(voice, gender) }
+        val genderMatches = localVoices.filter { voice -> voiceMatchesGender(voice, gender)}
         return genderMatches.firstOrNull { it.locale.country == locale.country }
             ?: genderMatches.firstOrNull()
             ?: localVoices.firstOrNull { it.locale.country == locale.country }
@@ -405,7 +398,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun voiceMatchesGender(voice: Voice, gender: String): Boolean {
         val searchableText = (listOf(voice.name) + voice.features).joinToString(" ").lowercase(Locale.US)
-        return if (gender == TTS_FEMALE) {
+        return if (gender == AppPreferences.TTS_FEMALE) {
             searchableText.contains("female") || searchableText.contains("woman") || searchableText.contains("fem")
         } else {
             (searchableText.contains("male") && !searchableText.contains("female")) ||
@@ -416,7 +409,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun applyTextToSpeechVoiceProfile() {
         val gender = getTtsGender()
-        textToSpeech?.setPitch(if (gender == TTS_MALE) 0.52f else 1.08f)
+        textToSpeech?.setPitch(if (gender == AppPreferences.TTS_MALE) 0.52f else 1.08f)
         textToSpeech?.setSpeechRate(1.0f)
     }
 

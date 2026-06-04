@@ -1,7 +1,6 @@
 package com.akai.ui
 
 import android.content.Context
-import android.graphics.Color
 import android.view.LayoutInflater
 import android.widget.ImageButton
 import android.widget.TextView
@@ -29,12 +28,5 @@ class DeafBubbleWidget(
         findViewById<ImageButton>(R.id.btnSpeakMessage).setOnClickListener {
             onSpeak?.invoke(entry.text)
         }
-    }
-
-    private fun readableTextColor(backgroundColor: Int): Int {
-        val luminance = 0.299 * Color.red(backgroundColor) +
-            0.587 * Color.green(backgroundColor) +
-            0.114 * Color.blue(backgroundColor)
-        return if (luminance > 170) Color.BLACK else Color.WHITE
     }
 }

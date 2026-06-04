@@ -17,6 +17,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.OnBackPressedCallback
+import com.akai.data.AppPreferences
+import com.akai.ui.ConversationBubbleWidget
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -29,15 +31,14 @@ class SettingsActivity : AppCompatActivity() {
     private enum class Page { MAIN, AUDIO, PERSONALIZATION, CUSTOM_COLOR }
 
     companion object {
-        private const val PREFS_NAME = "akai_settings"
-        private const val KEY_DEAF_BUBBLE_COLOR = "deaf_bubble_color"
-        private const val KEY_HEARING_BUBBLE_COLOR = "hearing_bubble_color"
-        private const val KEY_TTS_GENDER = "tts_gender"
-        private const val TTS_FEMALE = "female"
-        private const val TTS_MALE = "male"
-
-        private val DEFAULT_DEAF_BUBBLE_COLOR = Color.parseColor("#A7C7E7")
-        private val DEFAULT_HEARING_BUBBLE_COLOR = Color.parseColor("#B8E6C1")
+        private val PREFS_NAME              = AppPreferences.PREFS_NAME
+        private val KEY_DEAF_BUBBLE_COLOR   = AppPreferences.KEY_DEAF_BUBBLE_COLOR
+        private val KEY_HEARING_BUBBLE_COLOR = AppPreferences.KEY_HEARING_BUBBLE_COLOR
+        private val KEY_TTS_GENDER          = AppPreferences.KEY_TTS_GENDER
+        private val TTS_FEMALE              = AppPreferences.TTS_FEMALE
+        private val TTS_MALE                = AppPreferences.TTS_MALE
+        private val DEFAULT_DEAF_BUBBLE_COLOR    = AppPreferences.DEFAULT_DEAF_BUBBLE_COLOR
+        private val DEFAULT_HEARING_BUBBLE_COLOR = AppPreferences.DEFAULT_HEARING_BUBBLE_COLOR
 
         private val PASTEL_COLORS = listOf(
             Color.parseColor("#A7C7E7"),
@@ -391,12 +392,8 @@ class SettingsActivity : AppCompatActivity() {
         return if (prefKey == KEY_DEAF_BUBBLE_COLOR) DEFAULT_DEAF_BUBBLE_COLOR else DEFAULT_HEARING_BUBBLE_COLOR
     }
 
-    private fun readableTextColor(backgroundColor: Int): Int {
-        val luminance = 0.299 * Color.red(backgroundColor) +
-            0.587 * Color.green(backgroundColor) +
-            0.114 * Color.blue(backgroundColor)
-        return if (luminance > 170) Color.BLACK else Color.WHITE
-    }
+    private fun readableTextColor(backgroundColor: Int): Int =
+        ConversationBubbleWidget.readableTextColor(backgroundColor)
 
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density).toInt()
