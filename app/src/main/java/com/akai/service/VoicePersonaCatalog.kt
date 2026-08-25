@@ -40,9 +40,9 @@ object VoicePersonaCatalog {
             VoicePersona(PERSONA_NAMES[index], voice, filipinoVoice)
         }
 
-        // Sam/Quinn's Tagalog voices swapped — verified by ear that Quinn's cycled-in Tagalog
-        // voice actually matched Sam's English voice better, and vice versa.
-        return swapFilipinoVoices(personas, "Sam", "Quinn")
+        // Sam/Quinn and Morgan/Taylor's Tagalog voices swapped — verified by ear that each
+        // pair's cycled-in Tagalog voice actually matched the other's English voice better.
+        return swapFilipinoVoices(swapFilipinoVoices(personas, "Sam", "Quinn"), "Morgan", "Taylor")
     }
 
     private fun swapFilipinoVoices(personas: List<VoicePersona>, nameA: String, nameB: String): List<VoicePersona> {
