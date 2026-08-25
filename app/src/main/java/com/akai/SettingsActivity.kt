@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.MotionEvent
 import android.view.View
 import android.widget.HorizontalScrollView
@@ -18,7 +20,10 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.OnBackPressedCallback
 import com.akai.data.AppPreferences
+import com.akai.service.VoicePersona
+import com.akai.service.VoicePersonaCatalog
 import com.akai.ui.ConversationBubbleWidget
+import java.util.Locale
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -28,15 +33,18 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
     private var currentPage = Page.MAIN
 
+    private var tts: TextToSpeech? = null
+    private var ttsReady = false
+    private var previewingPersonaName: String? = null
+    private var previewUtteranceIdsRemaining = mutableSetOf<String>()
+
     private enum class Page { MAIN, AUDIO, PERSONALIZATION, CUSTOM_COLOR }
 
     companion object {
         private val PREFS_NAME              = AppPreferences.PREFS_NAME
         private val KEY_DEAF_BUBBLE_COLOR   = AppPreferences.KEY_DEAF_BUBBLE_COLOR
         private val KEY_HEARING_BUBBLE_COLOR = AppPreferences.KEY_HEARING_BUBBLE_COLOR
-        private val KEY_TTS_GENDER          = AppPreferences.KEY_TTS_GENDER
-        private val TTS_FEMALE              = AppPreferences.TTS_FEMALE
-        private val TTS_MALE                = AppPreferences.TTS_MALE
+        private val KEY_TTS_VOICE_PERSONA    = AppPreferences.KEY_TTS_VOICE_PERSONA
         private val DEFAULT_DEAF_BUBBLE_COLOR    = AppPreferences.DEFAULT_DEAF_BUBBLE_COLOR
         private val DEFAULT_HEARING_BUBBLE_COLOR = AppPreferences.DEFAULT_HEARING_BUBBLE_COLOR
 
@@ -53,6 +61,17 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        tts = TextToSpeech(this) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (currentPage == Page.AUDIO) renderAudioPage()
+        }
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+            override fun onDone(utteranceId: String?) = onPreviewUtteranceFinished(utteranceId)
+            @Deprecated("Deprecated in Java, still required to override")
+            override fun onError(utteranceId: String?) = onPreviewUtteranceFinished(utteranceId)
+        })
+
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
@@ -63,6 +82,12 @@ class SettingsActivity : AppCompatActivity() {
         )
         buildBaseLayout()
         renderMainPage()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        tts?.stop()
+        tts?.shutdown()
     }
 
     private fun buildBaseLayout() {
@@ -148,9 +173,116 @@ class SettingsActivity : AppCompatActivity() {
         currentPage = Page.AUDIO
         titleView.text = "Audio"
         content.removeAllViews()
-        content.addView(sectionTitle("Text To Speech Voice"))
-        content.addView(choiceRow("Female", TTS_FEMALE))
-        content.addView(choiceRow("Male", TTS_MALE))
+
+        val engine = tts
+        if (!ttsReady || engine == null) {
+            content.addView(hintText("Loading voices…"))
+            return
+        }
+
+        val personas = VoicePersonaCatalog.build(engine)
+        val selectedName = prefs().getString(KEY_TTS_VOICE_PERSONA, null) ?: "Alex"
+
+        content.addView(sectionTitle("Voices"))
+        if (personas.isEmpty()) {
+            content.addView(hintText("No offline voices found on your device."))
+        } else {
+            content.addView(hintText("Tap ▶ to listen, tap the name to choose it."))
+            personas.forEach { persona -> content.addView(personaRow(persona, persona.name == selectedName)) }
+        }
+    }
+
+    /** Tapping the name selects the persona; tapping ▶/❙❙ only previews it, without selecting. */
+    private fun personaRow(persona: VoicePersona, selected: Boolean): LinearLayout {
+        val isPlaying = previewingPersonaName == persona.name
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            background = roundedRect(if (selected) Color.parseColor("#3949AB") else Color.parseColor("#263238"), 6f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(54)
+            ).apply { bottomMargin = dp(10) }
+
+            addView(TextView(this@SettingsActivity).apply {
+                text = if (selected) "${persona.name} ✓" else persona.name
+                textSize = 16f
+                setTextColor(Color.WHITE)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(16), 0, 0, 0)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    prefs().edit().putString(KEY_TTS_VOICE_PERSONA, persona.name).apply()
+                    renderAudioPage()
+                }
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            })
+            addView(TextView(this@SettingsActivity).apply {
+                text = if (isPlaying) "❙❙" else "▶"
+                textSize = 18f
+                setTextColor(Color.WHITE)
+                gravity = android.view.Gravity.CENTER
+                setPadding(dp(14), dp(14), dp(14), dp(14))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { togglePreview(persona) }
+            })
+        }
+    }
+
+    /** Plays the English side of the persona, then the Filipino side (if paired), back to back. */
+    private fun togglePreview(persona: VoicePersona) {
+        val engine = tts ?: return
+        if (previewingPersonaName == persona.name) {
+            engine.stop()
+            finishPreview()
+            return
+        }
+        previewingPersonaName = persona.name
+
+        val enId = "voice-preview-${persona.name}-en"
+        engine.language = Locale.US
+        engine.voice = persona.englishVoice
+        engine.setPitch(1.0f)
+        engine.setSpeechRate(1.0f)
+        engine.speak("Hello, this is ${persona.name}.", TextToSpeech.QUEUE_FLUSH, null, enId)
+        val queuedIds = mutableSetOf(enId)
+
+        val filipinoVoice = persona.filipinoVoice
+        if (filipinoVoice != null) {
+            val filId = "voice-preview-${persona.name}-fil"
+            engine.language = Locale("fil", "PH")
+            engine.voice = filipinoVoice
+            engine.setPitch(1.0f)
+            engine.setSpeechRate(1.0f)
+            engine.speak("Kumusta ka?", TextToSpeech.QUEUE_ADD, null, filId)
+            queuedIds.add(filId)
+        }
+
+        previewUtteranceIdsRemaining = queuedIds
+        renderAudioPage()
+    }
+
+    private fun onPreviewUtteranceFinished(utteranceId: String?) {
+        if (utteranceId == null) return
+        previewUtteranceIdsRemaining.remove(utteranceId)
+        if (previewUtteranceIdsRemaining.isEmpty()) finishPreview()
+    }
+
+    private fun finishPreview() {
+        previewingPersonaName = null
+        previewUtteranceIdsRemaining.clear()
+        runOnUiThread { if (currentPage == Page.AUDIO) renderAudioPage() }
+    }
+
+    private fun hintText(text: String): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 13f
+            setTextColor(Color.parseColor("#888888"))
+            setPadding(0, 0, 0, dp(10))
+        }
     }
 
     private fun renderPersonalizationPage() {
@@ -240,19 +372,6 @@ class SettingsActivity : AppCompatActivity() {
             ).apply {
                 bottomMargin = dp(10)
             }
-        }
-    }
-
-    private fun choiceRow(label: String, value: String): TextView {
-        val selected = prefs().getString(KEY_TTS_GENDER, TTS_FEMALE) == value
-        return settingsRow(if (selected) "$label *" else label) {
-            prefs().edit().putString(KEY_TTS_GENDER, value).apply()
-            renderAudioPage()
-        }.apply {
-            background = roundedRect(
-                if (selected) Color.parseColor("#3949AB") else Color.parseColor("#263238"),
-                6f
-            )
         }
     }
 
