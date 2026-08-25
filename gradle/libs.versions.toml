@@ -16,6 +16,7 @@ coroutines = "1.7.3"
 vosk = "0.3.47"
 lifecycle = "2.7.0"
 splashscreen = "1.0.1"
+nearby = "19.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -52,6 +53,9 @@ vosk = { group = "com.alphacephei", name = "vosk-android", version.ref = "vosk" 
 
 # Splash Screen
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
+
+# Nearby Connections (offline device-to-device sync)
+play-services-nearby = { group = "com.google.android.gms", name = "play-services-nearby", version.ref = "nearby" }
 
 
 [plugins]

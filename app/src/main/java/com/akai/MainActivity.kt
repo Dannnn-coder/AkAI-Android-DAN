@@ -24,6 +24,7 @@ import com.akai.data.AppPreferences
 import com.akai.data.ConversationEntry
 import com.akai.ui.ConversationBubbleWidget
 import com.akai.viewmodel.ConversationViewModel
+import com.akai.viewmodel.ConnectionState
 import com.akai.service.FSLRecognitionService
 import com.akai.service.VoskSTTService
 import java.util.Locale
@@ -47,6 +48,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var tvSpeechStatus: TextView
     private lateinit var tvLanguageToggle: TextView
     private lateinit var btnSettings: TextView
+
+    // Two-device session bar
+    private lateinit var btnStartSession: TextView
+    private lateinit var btnJoinSession: TextView
+    private lateinit var tvSessionStatus: TextView
+    private lateinit var btnEndSession: TextView
 
     // Letter buffer
     private lateinit var letterBufferPanel: LinearLayout
@@ -77,6 +84,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     companion object {
         private const val REQUEST_PERMISSIONS = 100
+        private const val REQUEST_NEARBY_PERMISSIONS = 101
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
@@ -96,9 +104,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setupLetterBuffer()
         setupSettings()
         setupModeButtons()
+        setupSessionBar()
         setupFSLCallbacks()
         setupVoskCallbacks()
         observeViewModel()
+        observeSessionState()
 
         if (allPermissionsGranted()) startCamera()
         else ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_PERMISSIONS)
@@ -117,6 +127,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvSpeechStatus        = findViewById(R.id.tvSpeechStatus)
         tvLanguageToggle      = findViewById(R.id.tvLanguageToggle)
         btnSettings           = findViewById(R.id.btnSettings)
+        btnStartSession       = findViewById(R.id.btnStartSession)
+        btnJoinSession        = findViewById(R.id.btnJoinSession)
+        tvSessionStatus       = findViewById(R.id.tvSessionStatus)
+        btnEndSession         = findViewById(R.id.btnEndSession)
         letterBufferPanel     = findViewById(R.id.letterBufferPanel)
         letterChipsContainer  = findViewById(R.id.letterChipsContainer)
         btnConfirmWord        = findViewById(R.id.btnConfirmWord)
@@ -461,6 +475,131 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvPrediction.text = "Loading speech model..."
     }
 
+    // =====================================================================
+    //  TWO-DEVICE SESSION BAR
+    // =====================================================================
+    private fun setupSessionBar() {
+        btnStartSession.setOnClickListener {
+            if (hasNearbyPermissions()) hostSession()
+            else requestNearbyPermissions(PendingSyncAction.HOST)
+        }
+        btnJoinSession.setOnClickListener {
+            if (hasNearbyPermissions()) showJoinDialog()
+            else requestNearbyPermissions(PendingSyncAction.JOIN)
+        }
+        btnEndSession.setOnClickListener {
+            viewModel.endSession()
+            Toast.makeText(this, "Session ended — conversation cleared", Toast.LENGTH_SHORT).show()
+            // Wipe rendered bubbles too, since the thread was cleared for RA 10173.
+            conversationContainer.removeAllViews()
+            lastRenderedCount = 0
+        }
+    }
+
+    private fun hostSession() {
+        val code = viewModel.startSession()
+        Toast.makeText(this, "Session started: $code\nShare this code to join.", Toast.LENGTH_LONG).show()
+    }
+
+    private fun showJoinDialog() {
+        val input = android.widget.EditText(this).apply {
+            hint = "e.g. AK-4829"
+            setSingleLine()
+            filters = arrayOf(android.text.InputFilter.AllCaps(), android.text.InputFilter.LengthFilter(8))
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Join Session")
+            .setMessage("Enter the session code from the other device:")
+            .setView(input)
+            .setPositiveButton("Join") { _, _ ->
+                val code = input.text.toString().trim().uppercase()
+                if (code.isBlank()) {
+                    Toast.makeText(this, "Please enter a session code", Toast.LENGTH_SHORT).show()
+                } else {
+                    viewModel.joinSession(code)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    /** Reflects ViewModel connection state onto the session bar. */
+    private fun observeSessionState() {
+        viewModel.connectionState.observe(this) { state ->
+            val code = viewModel.sessionCode.value ?: ""
+            when (state) {
+                ConnectionState.IDLE -> {
+                    tvSessionStatus.text = "Single device"
+                    tvSessionStatus.setTextColor(Color.parseColor("#90A4AE"))
+                    setSessionButtonsVisible(inSession = false)
+                }
+                ConnectionState.HOSTING -> {
+                    tvSessionStatus.text = "$code • waiting for peer…"
+                    tvSessionStatus.setTextColor(Color.parseColor("#FFB74D"))
+                    setSessionButtonsVisible(inSession = true)
+                }
+                ConnectionState.JOINING -> {
+                    tvSessionStatus.text = "$code • searching…"
+                    tvSessionStatus.setTextColor(Color.parseColor("#FFB74D"))
+                    setSessionButtonsVisible(inSession = true)
+                }
+                ConnectionState.CONNECTED -> {
+                    tvSessionStatus.text = "$code • Connected ✓"
+                    tvSessionStatus.setTextColor(Color.parseColor("#81C784"))
+                    setSessionButtonsVisible(inSession = true)
+                }
+                ConnectionState.ERROR -> {
+                    setSessionButtonsVisible(inSession = false)
+                }
+                else -> {}
+            }
+        }
+        viewModel.syncError.observe(this) { msg ->
+            if (!msg.isNullOrBlank()) {
+                Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                tvSessionStatus.text = "Single device"
+                tvSessionStatus.setTextColor(Color.parseColor("#90A4AE"))
+            }
+        }
+    }
+
+    private fun setSessionButtonsVisible(inSession: Boolean) {
+        btnStartSession.visibility = if (inSession) View.GONE else View.VISIBLE
+        btnJoinSession.visibility = if (inSession) View.GONE else View.VISIBLE
+        btnEndSession.visibility = if (inSession) View.VISIBLE else View.GONE
+    }
+
+    // ---- Nearby runtime permissions (requested only when user opts into sync) ----
+    private enum class PendingSyncAction { HOST, JOIN }
+    private var pendingSyncAction: PendingSyncAction? = null
+
+    private fun nearbyPermissions(): Array<String> {
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            // Android 12+ : new Bluetooth runtime perms + nearby wifi
+            arrayOf(
+                Manifest.permission.BLUETOOTH_ADVERTISE,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.NEARBY_WIFI_DEVICES
+            )
+        } else {
+            // Android 11 and below : location is required for BT/Wi-Fi scanning
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        }
+    }
+
+    private fun hasNearbyPermissions(): Boolean = nearbyPermissions().all {
+        ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun requestNearbyPermissions(action: PendingSyncAction) {
+        pendingSyncAction = action
+        ActivityCompat.requestPermissions(this, nearbyPermissions(), REQUEST_NEARBY_PERMISSIONS)
+    }
+
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
@@ -551,8 +690,26 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_PERMISSIONS && allPermissionsGranted()) startCamera()
-        else Toast.makeText(this, "Camera and microphone permissions required", Toast.LENGTH_SHORT).show()
+        when (requestCode) {
+            REQUEST_PERMISSIONS -> {
+                if (allPermissionsGranted()) startCamera()
+                else Toast.makeText(this, "Camera and microphone permissions required", Toast.LENGTH_SHORT).show()
+            }
+            REQUEST_NEARBY_PERMISSIONS -> {
+                val granted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
+                if (granted) {
+                    // Permissions just granted — continue the action the user originally tapped.
+                    when (pendingSyncAction) {
+                        PendingSyncAction.HOST -> hostSession()
+                        PendingSyncAction.JOIN -> showJoinDialog()
+                        null -> {}
+                    }
+                } else {
+                    Toast.makeText(this, "Two-device mode needs Bluetooth/Wi-Fi permissions", Toast.LENGTH_LONG).show()
+                }
+                pendingSyncAction = null
+            }
+        }
     }
 
     override fun onDestroy() {
