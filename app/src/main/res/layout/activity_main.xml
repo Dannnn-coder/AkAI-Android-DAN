@@ -44,6 +44,80 @@
 
     </LinearLayout>
 
+    <!-- ===== Two-Device Session Bar (offline sync) ===== -->
+    <LinearLayout
+        android:id="@+id/sessionBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:background="#181D2E">
+
+        <TextView
+            android:id="@+id/btnStartSession"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:gravity="center"
+            android:text="📡 Start"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:background="#3949AB"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btnJoinSession"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
+            android:gravity="center"
+            android:text="🔗 Join"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:background="#00695C"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/tvSessionStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="Single device"
+            android:textColor="#90A4AE"
+            android:textSize="12sp"
+            android:gravity="center_vertical|end" />
+
+        <TextView
+            android:id="@+id/btnEndSession"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:layout_marginStart="6dp"
+            android:gravity="center"
+            android:text="End"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:background="#B71C1C"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
     <!-- Camera Feed -->
     <androidx.camera.view.PreviewView
         android:id="@+id/cameraPreview"
