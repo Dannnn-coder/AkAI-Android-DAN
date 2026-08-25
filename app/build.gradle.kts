@@ -79,6 +79,9 @@ dependencies {
     // Splash Screen
     implementation(libs.androidx.core.splashscreen)
 
+    // Nearby Connections — offline device-to-device conversation sync
+    implementation(libs.play.services.nearby)
+
 
     // Tests
     testImplementation(libs.junit)
