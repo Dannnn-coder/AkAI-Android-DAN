@@ -7,12 +7,12 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
-import android.speech.tts.Voice
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import androidx.camera.core.*
@@ -22,11 +22,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.akai.data.AppPreferences
 import com.akai.data.ConversationEntry
+import com.akai.ui.CoachMarkTutorial
 import com.akai.ui.ConversationBubbleWidget
+import com.akai.ui.HelpModeOverlay
 import com.akai.viewmodel.ConversationViewModel
 import com.akai.viewmodel.ConnectionState
 import com.akai.service.FSLRecognitionService
+import com.akai.service.VoicePersonaCatalog
 import com.akai.service.VoskSTTService
+import com.akai.service.looksLikeTagalog
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -48,6 +52,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var tvSpeechStatus: TextView
     private lateinit var tvLanguageToggle: TextView
     private lateinit var btnSettings: TextView
+    private lateinit var btnHelp: TextView
+    private lateinit var modeSwitcherPanel: LinearLayout
 
     // Two-device session bar
     private lateinit var btnStartSession: TextView
@@ -114,6 +120,106 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         else ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_PERMISSIONS)
 
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        maybeShowOnboarding()
+    }
+
+    private fun maybeShowOnboarding() {
+        val hasSeenOnboarding = getSharedPreferences(AppPreferences.PREFS_NAME, MODE_PRIVATE)
+            .getBoolean(AppPreferences.KEY_HAS_SEEN_ONBOARDING, false)
+        if (hasSeenOnboarding) return
+        findViewById<View>(android.R.id.content).post {
+            AlertDialog.Builder(this)
+                .setTitle("Welcome to AkAI")
+                .setMessage("Is this your first time using AkAI?")
+                .setPositiveButton("Yes, show me around") { _, _ -> startCoachMarkTutorial() }
+                .setNegativeButton("Skip") { _, _ -> markOnboardingSeen() }
+                .setCancelable(false)
+                .show()
+        }
+    }
+
+    private fun startCoachMarkTutorial() {
+        val steps = listOf(
+            CoachMarkTutorial.Step(
+                cameraPreview, "Signing to AkAI",
+                "Sign in front of the camera and AkAI will turn it into text the other person can read."
+            ),
+            CoachMarkTutorial.Step(
+                btnFingerspell, "Fingerspelling",
+                "Can't find a sign for a word? Spell it out letter by letter instead, then tap each letter to add it."
+            ),
+            CoachMarkTutorial.Step(
+                btnSpeechMode, "Speaking to AkAI",
+                "Tap the microphone and just talk — in Filipino or English. AkAI will type out what you say."
+            ),
+            CoachMarkTutorial.Step(
+                modeSwitcherPanel, "Switching Modes",
+                "Tap here anytime to switch between signing with the camera and speaking with the microphone."
+            ),
+            CoachMarkTutorial.Step(
+                scrollConversation, "Shared Conversation",
+                "Everything you sign or say shows up here, so both of you can follow along together."
+            ),
+            CoachMarkTutorial.Step(
+                btnHelp, "Need Help Later?",
+                "Stuck later on? Tap the ? icon anytime and I'll walk you through everything again."
+            )
+        )
+        CoachMarkTutorial(this, steps) { markOnboardingSeen() }.start()
+    }
+
+    private fun markOnboardingSeen() {
+        getSharedPreferences(AppPreferences.PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putBoolean(AppPreferences.KEY_HAS_SEEN_ONBOARDING, true)
+            .apply()
+    }
+
+    private fun startHelpMode() {
+        val components = listOf(
+            CoachMarkTutorial.Step(
+                cameraPreview, "The Camera",
+                "This is where AkAI watches you sign. Make sure your hands are clearly in view."
+            ),
+            CoachMarkTutorial.Step(
+                tvPrediction, "What AkAI Sees",
+                "Shows the word or letter AkAI thinks you just signed."
+            ),
+            CoachMarkTutorial.Step(
+                btnFingerspell, "Fingerspell",
+                "Can't find the sign for a word? Tap this and spell it out letter by letter instead."
+            ),
+            CoachMarkTutorial.Step(
+                tvSentenceDraft, "Your Sentence",
+                "Your signs get added here as words. Once it looks right, hit Send."
+            ),
+            CoachMarkTutorial.Step(
+                btnSendSentence, "Send",
+                "Adds your sentence to the conversation so the other person can read it."
+            ),
+            CoachMarkTutorial.Step(
+                btnFSLMode, "FSL Camera",
+                "Tap this to turn on the camera and start signing."
+            ),
+            CoachMarkTutorial.Step(
+                btnSpeechMode, "Speech Input",
+                "Tap this to turn on the microphone. Speak normally and AkAI will type out what you said."
+            ),
+            CoachMarkTutorial.Step(
+                tvLanguageToggle, "Language",
+                "Tap to switch between Filipino and English for speech."
+            ),
+            CoachMarkTutorial.Step(
+                scrollConversation, "Conversation",
+                "Every message you send or receive shows up here, so you can follow the whole conversation."
+            ),
+            CoachMarkTutorial.Step(
+                btnSettings, "Settings",
+                "Change the color of your chat bubbles or pick a voice for AkAI to read messages out loud."
+            )
+        )
+        HelpModeOverlay(this, components) {}.start()
     }
 
     private fun bindViews() {
@@ -127,6 +233,8 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvSpeechStatus        = findViewById(R.id.tvSpeechStatus)
         tvLanguageToggle      = findViewById(R.id.tvLanguageToggle)
         btnSettings           = findViewById(R.id.btnSettings)
+        btnHelp               = findViewById(R.id.btnHelp)
+        modeSwitcherPanel     = findViewById(R.id.modeSwitcherPanel)
         btnStartSession       = findViewById(R.id.btnStartSession)
         btnJoinSession        = findViewById(R.id.btnJoinSession)
         tvSessionStatus       = findViewById(R.id.tvSessionStatus)
@@ -162,6 +270,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+        btnHelp.setOnClickListener { startHelpMode() }
     }
 
     private fun settingsPrefs(): SharedPreferences {
@@ -174,10 +283,6 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     private fun getHearingBubbleColor(): Int {
         return settingsPrefs().getInt(AppPreferences.KEY_HEARING_BUBBLE_COLOR, AppPreferences.DEFAULT_HEARING_BUBBLE_COLOR)
-    }
-
-    private fun getTtsGender(): String {
-        return settingsPrefs().getString(AppPreferences.KEY_TTS_GENDER, AppPreferences.TTS_FEMALE) ?: AppPreferences.TTS_FEMALE
     }
 
     private fun setupSentenceBuilder() {
@@ -365,70 +470,40 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     }
 
     override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            isTextToSpeechReady = configureTextToSpeechLanguage()
-        } else {
-            isTextToSpeechReady = false
+        isTextToSpeechReady = status == TextToSpeech.SUCCESS &&
+            (textToSpeech?.isLanguageAvailable(Locale.US) ?: TextToSpeech.LANG_NOT_SUPPORTED) >= TextToSpeech.LANG_AVAILABLE
+        if (!isTextToSpeechReady) {
             Toast.makeText(this, "Text-to-speech unavailable on this device", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun configureTextToSpeechLanguage(): Boolean {
-        val preferredLocale = if (viewModel.voskService.getCurrentLanguage() == VoskSTTService.Language.FILIPINO) {
-            Locale("fil", "PH")
+    /** Picks the right locale + voice for [text] from the user's chosen persona, so the same
+     *  "person" reads English text in English and Tagalog text in Tagalog. */
+    private fun configureTextToSpeechFor(text: String): Boolean {
+        val tts = textToSpeech ?: return false
+        val tagalog = looksLikeTagalog(text)
+        val preferredLocale = if (tagalog) Locale("fil", "PH") else Locale.US
+        val locale = if (tts.isLanguageAvailable(preferredLocale) >= TextToSpeech.LANG_AVAILABLE) {
+            preferredLocale
         } else {
             Locale.US
         }
-        val tts = textToSpeech ?: return false
-        val preferredAvailability = tts.isLanguageAvailable(preferredLocale)
-        val selectedLocale = if (preferredAvailability >= TextToSpeech.LANG_AVAILABLE) {
-            preferredLocale
-        } else {
-            Locale.getDefault()
-        }
-        val selectedAvailability = tts.isLanguageAvailable(selectedLocale)
-        return if (selectedAvailability >= TextToSpeech.LANG_AVAILABLE) {
-            tts.language = selectedLocale
-            findPreferredVoice(selectedLocale)?.let { tts.voice = it }
-            applyTextToSpeechVoiceProfile()
-            true
-        } else {
-            false
-        }
-    }
+        if (tts.isLanguageAvailable(locale) < TextToSpeech.LANG_AVAILABLE) return false
 
-    private fun findPreferredVoice(locale: Locale): Voice? {
-        val voices = textToSpeech?.voices ?: return null
-        val localVoices = voices.filter { voice ->
-            !voice.isNetworkConnectionRequired && voice.locale.language == locale.language
-        }
-        val gender = getTtsGender()
-        val genderMatches = localVoices.filter { voice -> voiceMatchesGender(voice, gender)}
-        return genderMatches.firstOrNull { it.locale.country == locale.country }
-            ?: genderMatches.firstOrNull()
-            ?: localVoices.firstOrNull { it.locale.country == locale.country }
-            ?: localVoices.firstOrNull()
-    }
+        tts.language = locale
+        tts.setPitch(1.0f)
+        tts.setSpeechRate(1.0f)
 
-    private fun voiceMatchesGender(voice: Voice, gender: String): Boolean {
-        val searchableText = (listOf(voice.name) + voice.features).joinToString(" ").lowercase(Locale.US)
-        return if (gender == AppPreferences.TTS_FEMALE) {
-            searchableText.contains("female") || searchableText.contains("woman") || searchableText.contains("fem")
-        } else {
-            (searchableText.contains("male") && !searchableText.contains("female")) ||
-                (searchableText.contains("man") && !searchableText.contains("woman")) ||
-                searchableText.contains("masc")
-        }
-    }
+        val personaName = settingsPrefs().getString(AppPreferences.KEY_TTS_VOICE_PERSONA, null) ?: "Alex"
+        val persona = VoicePersonaCatalog.build(tts).firstOrNull { it.name == personaName }
+        val voice = if (tagalog) persona?.filipinoVoice ?: persona?.englishVoice else persona?.englishVoice
+        if (voice != null) tts.voice = voice
 
-    private fun applyTextToSpeechVoiceProfile() {
-        val gender = getTtsGender()
-        textToSpeech?.setPitch(if (gender == AppPreferences.TTS_MALE) 0.52f else 1.08f)
-        textToSpeech?.setSpeechRate(1.0f)
+        return true
     }
 
     private fun speakDeafMessage(text: String) {
-        isTextToSpeechReady = configureTextToSpeechLanguage()
+        isTextToSpeechReady = configureTextToSpeechFor(text)
         if (!isTextToSpeechReady) {
             Toast.makeText(this, "Install an offline text-to-speech voice to read messages aloud", Toast.LENGTH_SHORT).show()
             return
