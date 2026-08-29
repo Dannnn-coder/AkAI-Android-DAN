@@ -6,13 +6,23 @@ build/
 .gradle/
 local.properties
 
-# Large model files - copy manually to assets/ after cloning
+# Large model files - copy manually after cloning (too big for git; >100MB GitHub limit)
+# Old location (pre-PAD, kept for safety if any linger):
 app/src/main/assets/akai_model.tflite
 app/src/main/assets/hand_landmarker.task
 app/src/main/assets/pose_landmarker.task
 app/src/main/assets/ggml-tiny.bin
 app/src/main/assets/vosk-model-tl/
 app/src/main/assets/vosk-model-en/
+
+# New location (Play Asset Delivery pack) — models live here now, still NOT in git:
+models_pack/src/main/assets/akai_model.tflite
+models_pack/src/main/assets/hand_landmarker.task
+models_pack/src/main/assets/pose_landmarker.task
+models_pack/src/main/assets/actions.txt
+models_pack/src/main/assets/sequence_length.txt
+models_pack/src/main/assets/vosk-model-tl/
+models_pack/src/main/assets/vosk-model-en/
 
 # IDE
 .idea/

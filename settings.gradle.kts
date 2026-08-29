@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AkAI"
 include(":app")
+include(":models_pack")

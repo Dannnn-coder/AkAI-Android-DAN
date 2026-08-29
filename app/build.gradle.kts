@@ -7,6 +7,10 @@ android {
     namespace = "com.akai"
     compileSdk = 34
 
+    // Play Asset Delivery: link the models asset pack (see models_pack module).
+    // Ships AkAI's ~857MB of ML models outside the base app, install-time delivery.
+    assetPacks += listOf(":models_pack")
+
     defaultConfig {
         applicationId = "com.akai"
         minSdk = 26
