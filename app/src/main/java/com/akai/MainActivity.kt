@@ -368,12 +368,19 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 Toast.makeText(this, "Please wait — model loading...", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            if (viewModel.voskService.getCurrentLanguage() == VoskSTTService.Language.FILIPINO) {
-                viewModel.voskService.switchLanguage(VoskSTTService.Language.ENGLISH)
-                tvLanguageToggle.text = "⏳ Loading English..."
+            val target = if (viewModel.voskService.getCurrentLanguage() == VoskSTTService.Language.FILIPINO) {
+                VoskSTTService.Language.ENGLISH
             } else {
-                viewModel.voskService.switchLanguage(VoskSTTService.Language.FILIPINO)
-                tvLanguageToggle.text = "⏳ Loading Filipino..."
+                VoskSTTService.Language.FILIPINO
+            }
+            // Only show "Loading…" if the switch was actually accepted. If switchLanguage
+            // returns false (busy/recording), the UI must NOT get stuck on a fake "Loading".
+            val accepted = viewModel.voskService.switchLanguage(target)
+            if (accepted) {
+                tvLanguageToggle.text = if (target == VoskSTTService.Language.ENGLISH)
+                    "⏳ Loading English..." else "⏳ Loading Filipino..."
+            } else {
+                Toast.makeText(this, "Please wait — try again in a moment", Toast.LENGTH_SHORT).show()
             }
         }
     }

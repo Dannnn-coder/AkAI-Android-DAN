@@ -91,14 +91,39 @@ class VoskSTTService(private val context: Context) {
 
     private fun copyModelToCache(modelFolder: String): String {
         val cacheDir = File(context.cacheDir, modelFolder)
-        if (cacheDir.exists() && cacheDir.list()?.isNotEmpty() == true) {
-            Log.d(TAG, "Model already in cache: $modelFolder")
+        // A ".done" marker is written ONLY after a full, successful copy. We treat the
+        // cache as valid only if that marker exists — this prevents loading a half-copied,
+        // corrupt model (which happens if a previous copy was interrupted, e.g. the app was
+        // backgrounded mid-copy of the ~776MB Tagalog model). Without this, Vosk silently
+        // hangs forever on "Loading speech model".
+        val doneMarker = File(context.cacheDir, "$modelFolder.done")
+        if (doneMarker.exists() && cacheDir.exists() && cacheDir.list()?.isNotEmpty() == true) {
+            Log.d(TAG, "Model already fully in cache: $modelFolder")
             return cacheDir.absolutePath
         }
 
-        cacheDir.mkdirs()
-        copyAssetFolder(modelFolder, cacheDir)
-        Log.d(TAG, "Model copied to cache: $modelFolder")
+        // Cache is missing OR was left incomplete → wipe any partial copy and redo it cleanly.
+        Log.d(TAG, "Copying model to cache (fresh): $modelFolder")
+        if (cacheDir.exists()) cacheDir.deleteRecursively()
+        doneMarker.delete()
+
+        // Copy into a temp dir first, then atomically rename to the final name. The final
+        // folder therefore only ever exists in a COMPLETE state.
+        val tmpDir = File(context.cacheDir, "$modelFolder.tmp")
+        if (tmpDir.exists()) tmpDir.deleteRecursively()
+        tmpDir.mkdirs()
+
+        val startMs = System.currentTimeMillis()
+        copyAssetFolder(modelFolder, tmpDir)
+
+        if (!tmpDir.renameTo(cacheDir)) {
+            // Fallback if rename across the same dir fails for any reason.
+            tmpDir.copyRecursively(cacheDir, overwrite = true)
+            tmpDir.deleteRecursively()
+        }
+        doneMarker.createNewFile()  // mark the copy as complete
+        val secs = (System.currentTimeMillis() - startMs) / 1000.0
+        Log.d(TAG, "Model copied to cache: $modelFolder in ${secs}s")
         return cacheDir.absolutePath
     }
 
@@ -114,6 +139,10 @@ class VoskSTTService(private val context: Context) {
             } else {
                 context.assets.open(subAsset).use { input ->
                     destFile.outputStream().use { output -> input.copyTo(output) }
+                }
+                // Log large files so a stalled copy is visible in logcat (e.g. HCLG.fst ~670MB).
+                if (destFile.length() > 50_000_000L) {
+                    Log.d(TAG, "  copied large asset: $asset (${destFile.length() / 1_000_000}MB)")
                 }
             }
         }
@@ -133,10 +162,23 @@ class VoskSTTService(private val context: Context) {
         }
     }
 
-    fun switchLanguage(language: Language) {
-        if (isRecording || isModelLoading) return  // Prevent switch during load or recording
+    /**
+     * Switch STT language. Returns true if the switch was accepted and a load kicked off,
+     * false if it was rejected (busy recording or already loading). Callers should only
+     * show a "Loading…" state when this returns true — otherwise the UI would be stuck
+     * showing "Loading" for a load that never started.
+     */
+    fun switchLanguage(language: Language): Boolean {
+        if (isRecording || isModelLoading) return false  // busy — don't accept the switch
+        if (language == loadedLanguage && voskModel != null) {
+            // Already on this language and loaded — nothing to do, tell UI it's ready.
+            currentLanguage = language
+            onModelReady?.invoke()
+            return true
+        }
         currentLanguage = language
         loadModel()
+        return true
     }
 
     @SuppressLint("MissingPermission")
