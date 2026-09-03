@@ -16,7 +16,7 @@ val keystoreProps = Properties().apply {
 
 android {
     namespace = "com.akai"
-    compileSdk = 34
+    compileSdk = 36
 
     // Play Asset Delivery: link the models asset pack (see models_pack module).
     // Ships AkAI's ~857MB of ML models outside the base app, install-time delivery.
@@ -25,9 +25,9 @@ android {
     defaultConfig {
         applicationId = "com.akai"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 7
-        versionName = "1.7"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "1.7.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
