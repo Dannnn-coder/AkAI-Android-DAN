@@ -20,6 +20,8 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.akai.data.AppPreferences
 import com.akai.data.ConversationEntry
 import com.akai.ui.CoachMarkTutorial
@@ -100,6 +102,18 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Edge-to-edge fix: on Android 15+ (targetSdk 35+) apps draw behind the system
+        // status/navigation bars by default, which made the phone's nav buttons overlap the
+        // camera / Fingerspell / Help buttons. Pad the root view by the system bar insets so
+        // no UI hides behind the bars.
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.rootLayout)) { view, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
+            )
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
 
         viewModel = ViewModelProvider(this)[ConversationViewModel::class.java]
         textToSpeech = TextToSpeech(this, this)
