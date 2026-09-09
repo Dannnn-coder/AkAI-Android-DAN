@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
@@ -101,6 +102,10 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Officially opt into edge-to-edge (the modern, non-deprecated API). This replaces the
+        // old deprecated window flags and is what Google's pre-launch check looks for. The actual
+        // inset padding is still handled by the OnApplyWindowInsetsListener below.
+        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
         // Edge-to-edge fix: on Android 15+ (targetSdk 35+) apps draw behind the system
