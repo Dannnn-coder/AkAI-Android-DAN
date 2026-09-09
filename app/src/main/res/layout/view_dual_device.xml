@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-screen Dual Device screen (blue). Host + Join 3D action buttons are
+     stacked and centered; the circular X exit button is pinned near the bottom.
+     The whole screen slides up from / down to below the window via
+     DualDeviceOverlay. Clickable + focusable root swallows all touches so the
+     underlying MainActivity never receives them while this screen is open. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/akai_blue"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- Host + Join: vertically stacked, centered both ways, no hardcoded offsets -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <LinearLayout
+            android:id="@+id/btnDualHost"
+            android:layout_width="232dp"
+            android:layout_height="224dp"
+            android:paddingBottom="12dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_white_3d_dual_device"
+            android:foreground="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="140dp"
+                android:layout_height="140dp"
+                android:layout_marginBottom="14dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_dual_device_host" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_bold"
+                android:text="@string/dual_device_host"
+                android:textColor="@color/akai_blue"
+                android:textSize="19sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnDualJoin"
+            android:layout_width="232dp"
+            android:layout_height="224dp"
+            android:layout_marginTop="28dp"
+            android:paddingBottom="12dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:background="@drawable/bg_white_3d_dual_device"
+            android:foreground="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="140dp"
+                android:layout_height="140dp"
+                android:layout_marginBottom="14dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_dual_device_join" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_bold"
+                android:text="@string/dual_device_join"
+                android:textColor="@color/akai_blue"
+                android:textSize="19sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Circular white 3D X exit button, bottom-center. Raised well clear of the
+         navigation bar (runtime also adds the nav/gesture inset). The X icon itself
+         is optically centered on the WHITE TOP FACE: more bottom padding than top so
+         it sits ~3dp up, compensating for the 5dp depth layer underneath. -->
+    <ImageButton
+        android:id="@+id/btnDualExit"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="40dp"
+        android:background="@drawable/bg_circle_white_3d"
+        android:contentDescription="@string/dual_device_exit"
+        android:scaleType="centerInside"
+        android:paddingStart="16dp"
+        android:paddingTop="13dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="19dp"
+        android:src="@drawable/ic_dual_device_exit"
+        android:clickable="true"
+        android:focusable="true" />
+
+</FrameLayout>

@@ -6,368 +6,297 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#121212"
+    android:background="@color/theme_bg"
     tools:context=".MainActivity">
 
-    <!-- Header -->
+    <!-- ===== Header (theme-aware: white header + blue icons in Light Mode,
+              dark header + white icons in Dark Mode) ===== -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:background="#1E1E1E">
+        android:paddingEnd="12dp"
+        android:background="@color/theme_surface">
 
+        <!-- AkAI logo (branding) -->
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/akai_logo"
+            android:contentDescription="AkAI logo"
+            android:scaleType="fitCenter" />
+
+        <!-- AkAI title beside the logo -->
         <TextView
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="AkAI v1.7"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
+            android:layout_marginStart="10dp"
+            android:text="AkAI"
+            android:textColor="@color/theme_title"
+            android:textSize="22sp"
+            android:fontFamily="@font/poppins_bold"
             android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/btnHelp"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginEnd="8dp"
-            android:gravity="center"
-            android:text="?"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:background="#263238"
-            android:clickable="true"
-            android:focusable="true"
-            android:contentDescription="Help"/>
-
-        <TextView
-            android:id="@+id/btnSettings"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:gravity="center"
-            android:text="Settings"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold"
-            android:background="#263238"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:clickable="true"
-            android:focusable="true"/>
-
-    </LinearLayout>
-
-    <!-- ===== Two-Device Session Bar (offline sync) ===== -->
-    <LinearLayout
-        android:id="@+id/sessionBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingTop="6dp"
-        android:paddingBottom="6dp"
-        android:background="#181D2E">
-
-        <TextView
-            android:id="@+id/btnStartSession"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
-            android:gravity="center"
-            android:text="📡 Start"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="#3949AB"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:clickable="true"
-            android:focusable="true" />
-
-        <TextView
-            android:id="@+id/btnJoinSession"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
-            android:layout_marginStart="6dp"
-            android:gravity="center"
-            android:text="🔗 Join"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="#00695C"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
-            android:clickable="true"
-            android:focusable="true" />
-
-        <TextView
-            android:id="@+id/tvSessionStatus"
+        <View
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="10dp"
-            android:text="Single device"
-            android:textColor="#90A4AE"
-            android:textSize="12sp"
-            android:gravity="center_vertical|end" />
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
-        <TextView
-            android:id="@+id/btnEndSession"
-            android:layout_width="wrap_content"
-            android:layout_height="34dp"
-            android:layout_marginStart="6dp"
-            android:gravity="center"
-            android:text="End"
-            android:textColor="#FFFFFF"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="#B71C1C"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
+        <!-- Help (first) — standalone icon, no background -->
+        <ImageButton
+            android:id="@+id/btnHelp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="8dp"
+            android:background="@null"
+            android:contentDescription="Help"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_help"
             android:clickable="true"
-            android:focusable="true"
-            android:visibility="gone" />
+            android:focusable="true" />
+
+        <!-- Dictionary (second) — standalone icon, no background -->
+        <ImageButton
+            android:id="@+id/btnDictionary"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="8dp"
+            android:background="@null"
+            android:contentDescription="Dictionary"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_dictionary"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Dual Device (third) — standalone icon, no background -->
+        <ImageButton
+            android:id="@+id/btnDualDevice"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="8dp"
+            android:background="@null"
+            android:contentDescription="Dual Device"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_dual_device"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Settings (fourth) — standalone icon, no background -->
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@null"
+            android:contentDescription="Settings"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_settings"
+            android:clickable="true"
+            android:focusable="true" />
 
     </LinearLayout>
 
-    <!-- Camera Feed -->
-    <androidx.camera.view.PreviewView
-        android:id="@+id/cameraPreview"
+    <!-- ===== Camera Stage: large preview + translucent conversation overlay ===== -->
+    <FrameLayout
+        android:id="@+id/cameraStage"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="2.5"
-        android:background="#000000"/>
+        android:layout_weight="1">
 
-    <!-- Current Prediction Badge -->
-    <TextView
-        android:id="@+id/tvPrediction"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Show your hands..."
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:padding="12dp"
-        android:background="#1E1E1E"
-        android:gravity="center"/>
+        <!-- Camera Feed (large — fills the whole stage) -->
+        <androidx.camera.view.PreviewView
+            android:id="@+id/cameraPreview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#000000" />
 
-    <!-- Top 3 Predictions Panel — visible when confidence is medium -->
-    <LinearLayout
-        android:id="@+id/top3Panel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#1E1E1E"
-        android:padding="8dp"
-        android:visibility="gone">
+        <!-- Voice mode overlay: solid blue replaces the camera preview while the
+             camera is stopped. The voice controls (waveform + Tap to speak/Stop)
+             are pinned to the LOWER part of the blue area, right above the
+             conversation box. They are an overlay, so they never move or push
+             the conversation container. -->
+        <FrameLayout
+            android:id="@+id/voiceOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/akai_blue"
+            android:visibility="gone">
 
+            <!-- Group sits clearly above the conversation overlay (fade 10dp +
+                 scroll 230dp = 240dp, plus a raised gap) so the button hovers
+                 around the Reset button's height, NOT flush against the box.
+                 Waveform gets a tall fixed band (overflowing peaks are drawn
+                 centered so they expand both above AND below the center). -->
+            <LinearLayout
+                android:id="@+id/voiceControlsGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:layout_marginBottom="250dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal">
+
+                <com.akai.ui.VoiceWaveformView
+                    android:id="@+id/voiceWaveform"
+                    android:layout_width="220dp"
+                    android:layout_height="168dp" />
+
+                <TextView
+                    android:id="@+id/btnTapToSpeak"
+                    android:layout_width="wrap_content"
+                    android:layout_height="56dp"
+                    android:minWidth="200dp"
+                    android:gravity="center"
+                    android:text="Tap to speak"
+                    android:textColor="#5796DB"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_btn_white_3d"
+                    android:layout_marginTop="16dp"
+                    android:paddingStart="28dp"
+                    android:paddingEnd="28dp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Conversation area (bottom overlay):
+             1) Reset button — floats OUTSIDE the conversation box, upper-left.
+             2) ~5dp SOFT FADE — transitions camera into the conversation box.
+             3) Conversation box — solid ~80% white, NO rounded corners, NOT faded. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical">
+
+            <!-- Reset Conversation: floats over the camera, just above the conversation
+                 box (upper-left area, outside the box itself) -->
+            <ImageButton
+                android:id="@+id/btnResetConversation"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="start"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_circle_blue_3d"
+                android:contentDescription="Reset conversation"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="15dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_reset"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- ~5dp fade transition -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                android:background="@drawable/bg_conversation_fade" />
+
+            <!-- Conversation box -->
+            <ScrollView
+                android:id="@+id/scrollConversation"
+                android:layout_width="match_parent"
+                android:layout_height="230dp"
+                android:padding="8dp"
+                android:scrollbars="none"
+                android:background="@drawable/bg_conversation_panel">
+
+                <LinearLayout
+                    android:id="@+id/conversationContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="4dp"/>
+
+            </ScrollView>
+        </LinearLayout>
+
+        <!-- Word Builder — floats directly above the Build a sentence section,
+             overlaying the bottom of the conversation area instead of taking
+             permanent layout space. White container; letters are plain text. -->
+        <LinearLayout
+            android:id="@+id/letterBufferPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="6dp">
+            android:padding="8dp"
+            android:background="@color/theme_letter_buffer"
+            android:visibility="gone">
 
-            <TextView
+            <HorizontalScrollView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Did you mean?"
-                android:textColor="#888888"
-                android:textSize="11sp"/>
+                android:fillViewport="true"
+                android:scrollbars="none">
 
-            <TextView
-                android:id="@+id/btnDismissTop3"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="✕"
-                android:textColor="#888888"
-                android:textSize="16sp"
-                android:padding="4dp"
+                <TextView
+                    android:id="@+id/tvLetterWord"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp"
+                    android:text=""
+                    android:textColor="@color/akai_blue"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:fontFamily="@font/poppins_bold"
+                    android:letterSpacing="0.15" />
+
+            </HorizontalScrollView>
+
+            <!-- Confirm button -->
+            <ImageButton
+                android:id="@+id/btnConfirmWord"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_confirm"
+                android:contentDescription="Confirm word"
+                android:scaleType="fitCenter"
+                android:paddingStart="11dp"
+                android:paddingEnd="11dp"
+                android:paddingTop="9dp"
+                android:paddingBottom="14dp"
+                android:background="@drawable/bg_btn_blue_3d"
+                android:layout_marginStart="8dp"
+                android:clickable="true"
+                android:focusable="true"/>
+
+            <!-- Delete button -->
+            <ImageButton
+                android:id="@+id/btnDeleteWord"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:src="@drawable/ic_close"
+                android:contentDescription="Delete word"
+                android:scaleType="fitCenter"
+                android:paddingStart="11dp"
+                android:paddingEnd="11dp"
+                android:paddingTop="9dp"
+                android:paddingBottom="14dp"
+                android:background="@drawable/bg_btn_red_3d"
+                android:layout_marginStart="4dp"
                 android:clickable="true"
                 android:focusable="true"/>
 
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+    </FrameLayout>
 
-            <!-- Choice 1 -->
-            <LinearLayout
-                android:id="@+id/btnChoice1"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:background="#1A237E"
-                android:padding="10dp"
-                android:layout_marginEnd="4dp"
-                android:clickable="true"
-                android:focusable="true">
-                <TextView
-                    android:id="@+id/tvChoice1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="A"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:id="@+id/tvConf1"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0.00"
-                    android:textColor="#90CAF9"
-                    android:textSize="10sp"
-                    android:visibility="gone"/>
-            </LinearLayout>
-
-            <!-- Choice 2 -->
-            <LinearLayout
-                android:id="@+id/btnChoice2"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:background="#263238"
-                android:padding="10dp"
-                android:layout_marginEnd="4dp"
-                android:clickable="true"
-                android:focusable="true">
-                <TextView
-                    android:id="@+id/tvChoice2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="B"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:id="@+id/tvConf2"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0.00"
-                    android:textColor="#90CAF9"
-                    android:textSize="10sp"
-                    android:visibility="gone"/>
-            </LinearLayout>
-
-            <!-- Choice 3 -->
-            <LinearLayout
-                android:id="@+id/btnChoice3"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:background="#263238"
-                android:padding="10dp"
-                android:clickable="true"
-                android:focusable="true">
-                <TextView
-                    android:id="@+id/tvChoice3"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="C"
-                    android:textColor="#FFFFFF"
-                    android:textSize="14sp"
-                    android:textStyle="bold"/>
-                <TextView
-                    android:id="@+id/tvConf3"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0.00"
-                    android:textColor="#90CAF9"
-                    android:textSize="10sp"
-                    android:visibility="gone"/>
-            </LinearLayout>
-
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Letter Buffer Panel — visible only during fingerspelling -->
-    <LinearLayout
-        android:id="@+id/letterBufferPanel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:padding="8dp"
-        android:background="#1A237E"
-        android:visibility="gone">
-
-        <!-- Letter chips container -->
-        <HorizontalScrollView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1">
-
-            <LinearLayout
-                android:id="@+id/letterChipsContainer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="4dp"/>
-
-        </HorizontalScrollView>
-
-        <!-- Confirm button -->
-        <TextView
-            android:id="@+id/btnConfirmWord"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:text="✓"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:gravity="center"
-            android:background="#2E7D32"
-            android:layout_marginStart="8dp"
-            android:clickable="true"
-            android:focusable="true"/>
-
-        <!-- Delete button -->
-        <TextView
-            android:id="@+id/btnDeleteWord"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:text="✗"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:gravity="center"
-            android:background="#B71C1C"
-            android:layout_marginStart="4dp"
-            android:clickable="true"
-            android:focusable="true"/>
-
-    </LinearLayout>
-
-    <!-- Conversation Thread -->
-    <ScrollView
-        android:id="@+id/scrollConversation"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="3"
-        android:padding="8dp"
-        android:background="#121212">
-
-        <LinearLayout
-            android:id="@+id/conversationContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="4dp"/>
-
-    </ScrollView>
-
-    <!-- Deaf Sentence Builder -->
+    <!-- ===== Build a sentence (themed section) ===== -->
     <LinearLayout
         android:id="@+id/sentenceBuilderPanel"
         android:layout_width="match_parent"
@@ -375,135 +304,493 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:padding="8dp"
-        android:background="#1E1E1E">
+        android:background="@color/theme_surface">
 
-        <HorizontalScrollView
+        <!-- Fixed sentence input container: bg_sentence_input stays put; ONLY the text
+             scrolls horizontally inside it. -->
+        <LinearLayout
+            android:id="@+id/sentenceInputContainer"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="44dp"
             android:layout_weight="1"
-            android:fillViewport="true">
+            android:background="@drawable/bg_sentence_input"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
 
-            <TextView
-                android:id="@+id/tvSentenceDraft"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:minWidth="140dp"
-                android:gravity="center_vertical"
-                android:paddingStart="10dp"
-                android:paddingEnd="10dp"
-                android:text="@string/sentence_builder_empty"
-                android:textColor="#BDBDBD"
-                android:textSize="15sp"
-                android:background="#263238" />
+            <HorizontalScrollView
+                android:id="@+id/scrollSentenceDraft"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:scrollbars="none"
+                android:overScrollMode="never">
 
-        </HorizontalScrollView>
+                <TextView
+                    android:id="@+id/tvSentenceDraft"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center_vertical"
+                    android:maxLines="1"
+                    android:text="@string/sentence_builder_empty"
+                    android:textColor="#BDBDBD"
+                    android:textSize="15sp" />
 
-        <TextView
-            android:id="@+id/btnFingerspell"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginStart="6dp"
-            android:gravity="center"
-            android:minWidth="86dp"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:text="Fingerspell"
-            android:textColor="#FFFFFF"
-            android:textSize="11sp"
-            android:background="#3949AB"
+            </HorizontalScrollView>
+        </LinearLayout>
+
+        <!-- Backspace: remove the last word from the draft -->
+        <ImageButton
+            android:id="@+id/btnBackspace"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/ic_backspace"
+            android:contentDescription="Backspace"
+            android:scaleType="fitCenter"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="15dp"
+            android:background="@drawable/bg_circle_blue_3d"
             android:clickable="true"
             android:focusable="true" />
 
-        <TextView
+        <!-- Fingerspell / Hand -->
+        <ImageButton
+            android:id="@+id/btnFingerspell"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/ic_hand"
+            android:contentDescription="Fingerspell"
+            android:scaleType="fitCenter"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="15dp"
+            android:background="@drawable/bg_circle_blue_3d"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <!-- Send -->
+        <ImageButton
             android:id="@+id/btnSendSentence"
-            android:layout_width="56dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="6dp"
-            android:gravity="center"
-            android:text="Send"
-            android:textColor="#FFFFFF"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            android:background="#2E7D32"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/ic_send"
+            android:contentDescription="Send"
+            android:scaleType="fitCenter"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="15dp"
+            android:background="@drawable/bg_circle_blue_3d"
             android:clickable="true"
             android:focusable="true" />
 
     </LinearLayout>
 
-    <!-- Mode Switcher Panel -->
+    <!-- ===== FSL Recognition / Result Area =====
+         FIXED, hardcoded height — NEVER resizes.
+         Camera mode:  blue container with "Show your hands..." (empty state) or the
+                       actual recognition options (white suggestion buttons).
+         Voice mode:   the SAME fixed container holds the Language controls. -->
+    <FrameLayout
+        android:id="@+id/fslRecognitionPanel"
+        android:layout_width="match_parent"
+        android:layout_height="104dp"
+        android:background="@color/akai_blue">
+
+        <!-- Empty / single result state -->
+        <TextView
+            android:id="@+id/tvPrediction"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="Show your hands..."
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <!-- Top 3 Predictions (Did you mean?) — shown over the blue container -->
+        <LinearLayout
+            android:id="@+id/top3Panel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="8dp"
+            android:background="@color/akai_blue"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Did you mean?"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/btnDismissTop3"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="@null"
+                    android:contentDescription="Dismiss"
+                    android:padding="4dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_close"
+                    android:tint="@color/white"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
+
+            <!-- Fixed-size suggestion buttons: identical dimensions regardless of
+                 whether the label wraps onto one or two lines -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <!-- Choice 1 -->
+                <LinearLayout
+                    android:id="@+id/btnChoice1"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="@drawable/bg_suggestion_white_3d"
+                    android:paddingLeft="4dp"
+                    android:paddingRight="4dp"
+                    android:paddingTop="1dp"
+                    android:paddingBottom="1dp"
+                    android:layout_marginEnd="4dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:id="@+id/tvChoice1"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="A"
+                        android:textColor="@color/akai_blue"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:maxLines="2" />
+                    <TextView
+                        android:id="@+id/tvConf1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.00"
+                        android:textColor="#3D6AA8"
+                        android:textSize="10sp"
+                        android:visibility="gone"/>
+                </LinearLayout>
+
+                <!-- Choice 2 -->
+                <LinearLayout
+                    android:id="@+id/btnChoice2"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="@drawable/bg_suggestion_white_3d"
+                    android:paddingLeft="4dp"
+                    android:paddingRight="4dp"
+                    android:paddingTop="1dp"
+                    android:paddingBottom="1dp"
+                    android:layout_marginEnd="4dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:id="@+id/tvChoice2"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="B"
+                        android:textColor="@color/akai_blue"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:maxLines="2" />
+                    <TextView
+                        android:id="@+id/tvConf2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.00"
+                        android:textColor="#3D6AA8"
+                        android:textSize="10sp"
+                        android:visibility="gone"/>
+                </LinearLayout>
+
+                <!-- Choice 3 -->
+                <LinearLayout
+                    android:id="@+id/btnChoice3"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:background="@drawable/bg_suggestion_white_3d"
+                    android:paddingLeft="4dp"
+                    android:paddingRight="4dp"
+                    android:paddingTop="1dp"
+                    android:paddingBottom="1dp"
+                    android:clickable="true"
+                    android:focusable="true">
+                    <TextView
+                        android:id="@+id/tvChoice3"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="C"
+                        android:textColor="@color/akai_blue"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:maxLines="2" />
+                    <TextView
+                        android:id="@+id/tvConf3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.00"
+                        android:textColor="#3D6AA8"
+                        android:textSize="10sp"
+                        android:visibility="gone"/>
+                </LinearLayout>
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Voice mode: Language controls inside the SAME fixed-size container -->
+        <LinearLayout
+            android:id="@+id/voiceControlsPanel"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="@color/akai_blue"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tvLanguageLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Language"
+                android:textColor="@color/white"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:id="@+id/languageButtonsRow"
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/btnLangEnglish"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="English"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_btn_lang_unselected"
+                    android:layout_marginEnd="6dp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/btnLangFilipino"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="Filipino"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_btn_lang_unselected"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
+
+            <!-- In-container loading state: replaces the label + buttons ONLY while
+                 a language model is actually loading. Same 104dp container, nothing
+                 around it moves. -->
+            <LinearLayout
+                android:id="@+id/languageLoadingState"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvLanguageLoadingText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/poppins_bold"
+                    android:gravity="center"
+                    android:maxLines="2"
+                    android:textColor="@color/white"
+                    android:textSize="13sp" />
+
+                <com.akai.ui.LanguageLoadingBar
+                    android:id="@+id/languageLoadingBar"
+                    android:layout_width="180dp"
+                    android:layout_height="16dp"
+                    android:layout_marginTop="6dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Dual Device connected-session tag: a small flat-blue pill pinned to the
+             top-right just below the header, stuck partially off the right edge.
+             Visible ONLY while a session is connected (driven from MainActivity). -->
+        <LinearLayout
+            android:id="@+id/sessionTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="-16dp"
+            android:background="@drawable/bg_session_tag"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="26dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="7dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_regular"
+                android:letterSpacing="0.12"
+                android:text="Session"
+                android:textColor="@color/white"
+                android:textSize="9sp" />
+
+            <TextView
+                android:id="@+id/sessionTagCode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_bold"
+                android:textColor="@color/white"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_regular"
+                android:text="Connected"
+                android:textColor="@color/white"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <!-- ===== Camera / Voice Switch — ONE unified segmented pill ===== -->
     <LinearLayout
         android:id="@+id/modeSwitcherPanel"
         android:layout_width="match_parent"
         android:layout_height="72dp"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:padding="6dp"
+        android:background="@color/theme_surface">
 
-        <!-- FSL Camera Button -->
         <LinearLayout
-            android:id="@+id/btnFSLMode"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="#1A237E"
-            android:clickable="true"
-            android:focusable="true">
+            android:orientation="horizontal"
+            android:padding="2dp"
+            android:background="@drawable/bg_mode_container">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="📷"
-                android:textSize="24sp"/>
-
-            <TextView
-                android:id="@+id/tvFSLStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="FSL Camera — Active"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"/>
-
-        </LinearLayout>
-
-        <!-- Speech Input Button -->
-        <LinearLayout
-            android:id="@+id/btnSpeechMode"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:background="#1B5E20"
-            android:clickable="true"
-            android:focusable="true">
-
-            <!-- Language Toggle -->
-            <TextView
-                android:id="@+id/tvLanguageToggle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🇵🇭 Filipino"
-                android:textColor="#FFFFFF"
-                android:textSize="10sp"
-                android:background="#2E7D32"
-                android:padding="4dp"
-                android:layout_marginBottom="2dp"
+            <!-- Camera segment (selected: blue raised 3D) -->
+            <LinearLayout
+                android:id="@+id/btnFSLMode"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_mode_selected_3d"
                 android:clickable="true"
-                android:focusable="true"/>
+                android:focusable="true">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="🎤"
-                android:textSize="24sp"/>
+                <ImageView
+                    android:id="@+id/imgFSLIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginBottom="2dp"
+                    android:src="@drawable/ic_camera"
+                    android:contentDescription="Camera"
+                    android:scaleType="fitCenter"/>
 
-            <TextView
-                android:id="@+id/tvSpeechStatus"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Speech Input — Dormant"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"/>
+                <TextView
+                    android:id="@+id/tvFSLStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Camera"
+                    android:textColor="@color/white"
+                    android:textSize="13sp"
+                    android:textStyle="bold"/>
+
+            </LinearLayout>
+
+            <!-- Voice segment (inactive: flat theme base, NO 3D shadow) -->
+            <LinearLayout
+                android:id="@+id/btnSpeechMode"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@null"
+                android:clickable="true"
+                android:focusable="true">
+
+                <ImageView
+                    android:id="@+id/imgSpeechIcon"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_marginBottom="2dp"
+                    android:src="@drawable/ic_mic"
+                    android:contentDescription="Microphone"
+                    android:scaleType="fitCenter"/>
+
+                <TextView
+                    android:id="@+id/tvSpeechStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Voice"
+                    android:textColor="@color/theme_text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold"/>
+
+            </LinearLayout>
 
         </LinearLayout>
 

@@ -2,205 +2,142 @@ package com.akai
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.content.Intent
 import android.os.Bundle
-import android.view.View
-import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
-import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import com.akai.data.AppPreferences
 import com.akai.viewmodel.ConversationViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class SplashActivity : AppCompatActivity() {
 
-    private val MIN_DISPLAY_MS         = 2000L
-    private val SLOW_LOAD_THRESHOLD_MS = 2500L
+    // One-shot branded sequence (ms) — no loading bar, no artificial wait.
+    private val FADE_IN_MS     = 360L // logo + "AkAI" appear together
+    private val PAUSE_MS       = 150L // brief hold after the fade-in
+    private val SHIFT_TAGLINE_MS = 420L // group eases up + tagline fades in
+    private val ANIMATION_TOTAL_MS = FADE_IN_MS + PAUSE_MS + SHIFT_TAGLINE_MS
 
     private var startTime   = 0L
     private var modelsReady = false
 
-    private lateinit var viewModel     : ConversationViewModel
-    private lateinit var logoImage     : ImageView
-    private lateinit var glowView      : View
-    private lateinit var tagline       : TextView
-    private lateinit var accentLine    : View
-    private lateinit var versionText   : TextView
-    private lateinit var progressLayout: LinearLayout
-
-    private var pulseAnimSet: AnimatorSet? = null
+    private lateinit var viewModel : ConversationViewModel
+    private lateinit var logoImage : ImageView
+    private lateinit var appName   : TextView
+    private lateinit var tagline   : TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Apply the saved theme preference (default Dark Mode) before the
+        // splash renders, so a fresh install launches in Dark Mode.
+        prefs().let {
+            AppCompatDelegate.setDefaultNightMode(
+                it.getInt(AppPreferences.KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES)
+            )
+        }
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
 
-        startTime      = System.currentTimeMillis()
-        glowView       = findViewById(R.id.splashGlow)
-        logoImage      = findViewById(R.id.splashLogo)
-        tagline        = findViewById(R.id.splashTagline)
-        accentLine     = findViewById(R.id.splashAccentLine)
-        versionText    = findViewById(R.id.splashVersion)
-        progressLayout = findViewById(R.id.progressLayout)
+        // Sync the system status/navigation bars with the applied theme.
+        SystemBarTheme.apply(this)
+
+        startTime = System.currentTimeMillis()
+        logoImage = findViewById(R.id.splashLogo)
+        appName   = findViewById(R.id.splashAppName)
+        tagline   = findViewById(R.id.splashTagline)
 
         viewModel = ViewModelProvider(this)[ConversationViewModel::class.java]
 
         initViewStates()
         startEntranceAnimation()
-        scheduleSlowLoadIndicator()
         observeModelReady()
     }
 
     // ────────────────────────────────────────────
     // INITIAL STATES
     // ────────────────────────────────────────────
+    // Everything fades in from pure white (alpha 0). No position offset up
+    // front — the group appears centered, THEN rises in phase 2.
 
     private fun initViewStates() {
-        glowView.alpha       = 0f
-        logoImage.alpha      = 0f
-        logoImage.scaleX     = 0.75f
-        logoImage.scaleY     = 0.75f
-        tagline.alpha        = 0f
-        tagline.translationY = 40f.dpToPx()
-        accentLine.alpha     = 0f
-        accentLine.scaleX    = 0f
-        // NOTE: pivotX is NOT set here — the system default is already center (width/2).
-        // Setting it at onCreate time would set it to 0 because the view hasn't been
-        // measured yet, which would cause the line to expand from the left edge instead.
-        versionText.alpha    = 0f
+        logoImage.alpha = 0f
+        appName.alpha   = 0f
+        tagline.alpha   = 0f
+        logoImage.translationY = 0f
+        appName.translationY   = 0f
     }
 
     // ────────────────────────────────────────────
-    // ANIMATIONS
+    // ENTRANCE ANIMATION
     // ────────────────────────────────────────────
+    // Sequence: white → logo+"AkAI" fade in together → brief pause → the group
+    // rises slightly up (smooth EASE-OUT) while the tagline fades in below it.
+    // No bounce, no hover, no looping, no loading indicator.
 
     private fun startEntranceAnimation() {
-        val decel    = DecelerateInterpolator()
-        val smoothIO = AccelerateDecelerateInterpolator()
+        val easeOut = DecelerateInterpolator(2f)
+        val shiftUp = 26f.dpToPx()
 
-        // Phase 1 (0ms) — Glow fades in softly behind logo
-        ObjectAnimator.ofFloat(glowView, "alpha", 0f, 1f).apply {
-            duration     = 1000
-            interpolator = decel
+        // Phase 1 — logo + app name fade in together.
+        AnimatorSet().apply {
+            playTogether(
+                ObjectAnimator.ofFloat(logoImage, "alpha", 0f, 1f).apply {
+                    duration     = FADE_IN_MS
+                    interpolator = easeOut
+                },
+                ObjectAnimator.ofFloat(appName, "alpha", 0f, 1f).apply {
+                    duration     = FADE_IN_MS
+                    interpolator = easeOut
+                }
+            )
             start()
         }
 
-        // Phase 1 (0ms) — Logo: fade in + scale up with slight overshoot
-        val logoFade = ObjectAnimator.ofFloat(logoImage, "alpha", 0f, 1f).apply {
-            duration     = 900
-            interpolator = decel
-        }
-        val logoSX = ObjectAnimator.ofFloat(logoImage, "scaleX", 0.75f, 1f).apply {
-            duration     = 900
-            interpolator = OvershootInterpolator(1.2f)
-        }
-        val logoSY = ObjectAnimator.ofFloat(logoImage, "scaleY", 0.75f, 1f).apply {
-            duration     = 900
-            interpolator = OvershootInterpolator(1.2f)
-        }
-        AnimatorSet().apply { playTogether(logoFade, logoSX, logoSY); start() }
-
-        // Phase 2 (650ms) — Tagline slides up + fades in
-        ObjectAnimator.ofFloat(tagline, "translationY", 40f.dpToPx(), 0f).apply {
-            duration     = 700
-            startDelay   = 650
-            interpolator = decel
+        // Phase 2 — after a brief natural pause, the whole group shifts up
+        // (ease-out) while the tagline fades in underneath. The tagline stays
+        // in place — it only fades, it never slides on its own.
+        AnimatorSet().apply {
+            playTogether(
+                ObjectAnimator.ofFloat(logoImage, "translationY", 0f, -shiftUp).apply {
+                    duration     = SHIFT_TAGLINE_MS
+                    interpolator = easeOut
+                },
+                ObjectAnimator.ofFloat(appName, "translationY", 0f, -shiftUp).apply {
+                    duration     = SHIFT_TAGLINE_MS
+                    interpolator = easeOut
+                },
+                ObjectAnimator.ofFloat(tagline, "alpha", 0f, 1f).apply {
+                    duration     = 360L
+                    startDelay   = 100
+                    interpolator = DecelerateInterpolator(1.2f)
+                }
+            )
+            startDelay = FADE_IN_MS + PAUSE_MS
             start()
-        }
-        ObjectAnimator.ofFloat(tagline, "alpha", 0f, 1f).apply {
-            duration     = 700
-            startDelay   = 650
-            interpolator = decel
-            start()
-        }
-
-        // Phase 3 (950ms) — Accent line expands from center
-        ObjectAnimator.ofFloat(accentLine, "scaleX", 0f, 1f).apply {
-            duration     = 600
-            startDelay   = 950
-            interpolator = smoothIO
-            start()
-        }
-        ObjectAnimator.ofFloat(accentLine, "alpha", 0f, 0.85f).apply {
-            duration   = 500
-            startDelay = 950
-            start()
-        }
-
-        // Phase 4 (1100ms) — Version text fades in quietly
-        ObjectAnimator.ofFloat(versionText, "alpha", 0f, 1f).apply {
-            duration   = 600
-            startDelay = 1100
-            start()
-        }
-
-        // Phase 5 (1000ms) — Start pulse — uses lifecycleScope so it auto-cancels
-        // if the activity is destroyed before the delay fires (e.g. user presses back)
-        lifecycleScope.launch {
-            delay(1000)
-            startPulse()
-        }
-    }
-
-    private fun startPulse() {
-        val lX = ObjectAnimator.ofFloat(logoImage, "scaleX", 1f, 1.05f, 1f).apply {
-            duration     = 1800
-            repeatCount  = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-        }
-        val lY = ObjectAnimator.ofFloat(logoImage, "scaleY", 1f, 1.05f, 1f).apply {
-            duration     = 1800
-            repeatCount  = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-        }
-        val gX = ObjectAnimator.ofFloat(glowView, "scaleX", 1f, 1.12f, 1f).apply {
-            duration     = 1800
-            repeatCount  = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-        }
-        val gY = ObjectAnimator.ofFloat(glowView, "scaleY", 1f, 1.12f, 1f).apply {
-            duration     = 1800
-            repeatCount  = ValueAnimator.INFINITE
-            interpolator = AccelerateDecelerateInterpolator()
-        }
-        pulseAnimSet = AnimatorSet().apply {
-            playTogether(lX, lY, gX, gY)
-            start()
-        }
-    }
-
-    // ────────────────────────────────────────────
-    // SLOW-LOAD SPINNER
-    // ────────────────────────────────────────────
-
-    private fun scheduleSlowLoadIndicator() {
-        // lifecycleScope auto-cancels when activity is destroyed — no crash risk
-        lifecycleScope.launch {
-            delay(SLOW_LOAD_THRESHOLD_MS)
-            if (!modelsReady) {
-                progressLayout.animate().alpha(1f).setDuration(400).start()
-            }
         }
     }
 
     // ────────────────────────────────────────────
     // MODEL READY
     // ────────────────────────────────────────────
+    // Transition once the animation has had time to finish AND the splash's
+    // background model load has resolved. The app never lingers just to play
+    // a longer animation — if the model is already ready early, we only wait
+    // out the rest of the animation (instantly if it already finished).
 
     private fun observeModelReady() {
         viewModel.modelsReady.observe(this) { ready ->
-            if (ready) {
+            if (ready && !modelsReady) {
                 modelsReady = true
-                val elapsed = System.currentTimeMillis() - startTime
-                val remaining = maxOf(0L, MIN_DISPLAY_MS - elapsed)
+                val elapsed  = System.currentTimeMillis() - startTime
+                val remaining = maxOf(0L, ANIMATION_TOTAL_MS - elapsed)
                 // lifecycleScope auto-cancels — transitionToMain() never fires on
                 // a destroyed activity even if modelsReady arrives at the last moment
                 lifecycleScope.launch {
@@ -217,17 +154,14 @@ class SplashActivity : AppCompatActivity() {
 
     private fun transitionToMain() {
         if (isFinishing || isDestroyed) return  // extra safety guard
-        pulseAnimSet?.cancel()
-        startActivity(Intent(this, MainActivity::class.java))
+        // First launch: route through the blue permission setup screen before
+        // entering the main application (only once — tracked via preferences).
+        val needsPermissionSetup = !prefs().getBoolean(AppPreferences.KEY_PERMISSION_SETUP_DONE, false)
+        val destination = if (needsPermissionSetup) PermissionActivity::class.java else MainActivity::class.java
+        startActivity(Intent(this, destination))
         @Suppress("DEPRECATION")
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         finish()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        pulseAnimSet?.cancel()
-        // lifecycleScope coroutines are automatically cancelled here — no leaks
     }
 
     // ────────────────────────────────────────────
@@ -236,4 +170,7 @@ class SplashActivity : AppCompatActivity() {
 
     private fun Float.dpToPx(): Float =
         this * resources.displayMetrics.density
+
+    private fun prefs(): android.content.SharedPreferences =
+        getSharedPreferences(AppPreferences.PREFS_NAME, MODE_PRIVATE)
 }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pressed/flat state of the circular blue 3D button: single #4A6FCC
+     oval, no bottom shadow/depth layer. Used while fingerspelling is active. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/akai_blue_shadow" />
+</shape>

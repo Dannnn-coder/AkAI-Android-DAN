@@ -1,6 +1,19 @@
 <resources>
     <string name="app_name">AkAI</string>
-    <string name="splash_tagline">Your Voice in Signs, Your Ears in Sight</string>
+    <string name="splash_tagline">Speak. Sign. Connect.</string>
     <string name="play_deaf_message_audio">Read Deaf message aloud</string>
     <string name="sentence_builder_empty">Build a sentence...</string>
+    <string name="dual_device_host">Host</string>
+    <string name="dual_device_join">Join</string>
+    <string name="dual_device_exit">Exit Dual Device</string>
+    <string name="dual_host_title">Session Started</string>
+    <string name="dual_host_waiting">Waiting for a device to connect...</string>
+    <string name="dual_join_title">Join Session</string>
+    <string name="dual_join_instruction">Enter the Session code from the other device</string>
+    <string name="dual_code_prefix">AK</string>
+    <string name="dual_action_cancel">Cancel</string>
+    <string name="dual_connected_title">Connected to Session</string>
+    <string name="dual_connected_end">End Session</string>
+    <string name="dual_connected_disconnect">Disconnect</string>
+    <string name="dual_connected_exit">Exit Dual Device session</string>
 </resources>

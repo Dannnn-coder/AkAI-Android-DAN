@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-screen Join Session page (blue). "AK" prefix is a fixed label — only the
+     four digit slots accept input. Join/Cancel live at the bottom, anchored at the
+     screen bottom (nav inset applied at runtime). The window uses adjustNothing so
+     the keyboard never resizes this page and the buttons never shift. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/akai_blue"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingStart="28dp"
+        android:paddingEnd="28dp">
+
+        <TextView
+            android:id="@+id/tvJoinTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins_bold"
+            android:text="@string/dual_join_title"
+            android:textColor="@color/white"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/tvJoinInstruction"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:fontFamily="@font/poppins_regular"
+            android:gravity="center"
+            android:lineSpacingExtra="4dp"
+            android:text="@string/dual_join_instruction"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+
+        <!-- AK - [ _ ][ _ ][ _ ][ _ ] -->
+        <LinearLayout
+            android:id="@+id/codeInputRow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="30dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/poppins_bold"
+                android:text="@string/dual_code_prefix"
+                android:textColor="@color/white"
+                android:textSize="26sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="10dp"
+                android:fontFamily="@font/poppins_bold"
+                android:text="−"
+                android:textColor="@color/white"
+                android:textSize="22sp" />
+
+            <EditText
+                android:id="@+id/inputCode0"
+                android:layout_width="42dp"
+                android:layout_height="48dp"
+                android:background="@drawable/bg_code_slot"
+                android:fontFamily="@font/poppins_bold"
+                android:gravity="center"
+                android:inputType="number"
+                android:maxLength="1"
+                android:textColor="@color/white"
+                android:textColorHint="#B3FFFFFF"
+                android:textSize="24sp" />
+
+            <EditText
+                android:id="@+id/inputCode1"
+                android:layout_width="42dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_code_slot"
+                android:fontFamily="@font/poppins_bold"
+                android:gravity="center"
+                android:inputType="number"
+                android:maxLength="1"
+                android:textColor="@color/white"
+                android:textColorHint="#B3FFFFFF"
+                android:textSize="24sp" />
+
+            <EditText
+                android:id="@+id/inputCode2"
+                android:layout_width="42dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_code_slot"
+                android:fontFamily="@font/poppins_bold"
+                android:gravity="center"
+                android:inputType="number"
+                android:maxLength="1"
+                android:textColor="@color/white"
+                android:textColorHint="#B3FFFFFF"
+                android:textSize="24sp" />
+
+            <EditText
+                android:id="@+id/inputCode3"
+                android:layout_width="42dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_code_slot"
+                android:fontFamily="@font/poppins_bold"
+                android:gravity="center"
+                android:inputType="number"
+                android:maxLength="1"
+                android:textColor="@color/white"
+                android:textColorHint="#B3FFFFFF"
+                android:textSize="24sp" />
+
+        </LinearLayout>
+
+        <!-- Fixed-height status / loading area — reserves space so the buttons
+             below never shift when status text or the spinner appears / disappears. -->
+        <FrameLayout
+            android:id="@+id/statusArea"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_marginTop="18dp">
+
+            <TextView
+                android:id="@+id/tvJoinStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal|top"
+                android:fontFamily="@font/poppins_regular"
+                android:gravity="center"
+                android:lineSpacingExtra="3dp"
+                android:visibility="gone"
+                android:textColor="#E6FFFFFF"
+                android:textSize="14sp" />
+
+            <!-- Custom white loading bar, visible while searching for a session.
+                 Uses the app's existing LanguageLoadingBar animation style. -->
+            <com.akai.ui.LanguageLoadingBar
+                android:id="@+id/joinLoadingIndicator"
+                android:layout_width="140dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center_horizontal|bottom"
+                android:visibility="gone" />
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <!-- [ Cancel ] [ Join ] : ORIGINAL general white button style (same as the
+         app's other action buttons); anchored at the screen bottom. -->
+    <LinearLayout
+        android:id="@+id/joinBottomRow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="40dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/btnJoinCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="56dp"
+            android:layout_weight="0"
+            android:minWidth="132dp"
+            android:gravity="center"
+            android:fontFamily="@font/poppins_bold"
+            android:text="@string/dual_action_cancel"
+            android:textColor="@color/akai_blue"
+            android:textSize="17sp"
+            android:background="@drawable/bg_btn_white_3d"
+            android:foreground="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:id="@+id/btnJoinSubmit"
+            android:layout_width="wrap_content"
+            android:layout_height="56dp"
+            android:layout_marginStart="16dp"
+            android:minWidth="132dp"
+            android:gravity="center"
+            android:fontFamily="@font/poppins_bold"
+            android:text="@string/dual_device_join"
+            android:textColor="@color/akai_blue"
+            android:textSize="17sp"
+            android:background="@drawable/bg_btn_white_3d"
+            android:foreground="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </LinearLayout>
+
+</FrameLayout>

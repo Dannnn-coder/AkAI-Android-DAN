@@ -50,9 +50,17 @@
         <!-- Main app activity — no longer the launcher -->
         <activity
             android:name=".MainActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustNothing" />
+        <!-- First-time permission gate shown once before the main application -->
+        <activity
+            android:name=".PermissionActivity"
             android:exported="false" />
         <activity
             android:name=".SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".DictionaryActivity"
             android:exported="false" />
     </application>
 

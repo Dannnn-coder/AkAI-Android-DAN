@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dual Device page ONLY: white 3D button with a thick, clearly visible depth
+     layer. Unlike the app's normal white 3D buttons (5dp hint of depth), this one
+     has a solid ~12dp akai-blue/lavender base underneath the white top face. The
+     depth is a real solid shape aligned with the face (rounded, no horizontal
+     offset) — not a drop shadow. Only the Dual Device Host and Join buttons use it. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Thick solid depth layer: full bounds, exactly matches the face shape -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/akai_white_shadow" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <!-- White top face, inset upward so the depth shows clearly underneath -->
+    <item android:bottom="20dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/akai_white" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</layer-list>

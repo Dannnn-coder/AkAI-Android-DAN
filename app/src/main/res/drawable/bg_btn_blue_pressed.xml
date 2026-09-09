@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pressed/flat state of the blue 3D button: single #4A6FCC surface,
+     no bottom shadow/depth layer. Used for the Stop button while recording. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/akai_blue_shadow" />
+    <corners android:radius="14dp" />
+</shape>

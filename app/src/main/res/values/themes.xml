@@ -7,9 +7,14 @@
 
     <style name="Theme.AkAI" parent="Base.Theme.AkAI" />
 
-    <!-- Splash Screen theme — used by SplashActivity only -->
+    <!-- Splash Screen theme — used by SplashActivity only.
+         The system splash is pure white and shows NO launcher icon (transparent
+         icon drawable), so it blends seamlessly into the AkAI branded launch
+         animation that follows. -->
     <style name="Theme.AkAI.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/background_dark</item>
+        <item name="windowSplashScreenBackground">@color/white</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_transparent</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="postSplashScreenTheme">@style/Theme.AkAI</item>
     </style>
 </resources>

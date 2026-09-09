@@ -1,6 +1,8 @@
 package com.akai.viewmodel
 
 import android.app.Application
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
@@ -32,6 +34,11 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     // Repository
     private val repository = ConversationRepository()
 
+    // Conversation state is shared, so ALL mutations (local sends, incoming sync
+    // payloads, connect/disconnect cleanup) must happen on the main thread — never
+    // mutate the repository or emit LiveData from a transport/worker thread.
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     // Observable state
     val entries = MutableLiveData<List<ConversationEntry>>(emptyList())
     val isFSLMode = MutableLiveData<Boolean>(true)
@@ -41,6 +48,8 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     // ---- Two-device (offline sync) state ----
     val syncMode = MutableLiveData(SyncMode.SINGLE_DEVICE)
     val connectionState = MutableLiveData(ConnectionState.IDLE)
+    /** True while this device is the HOST of the session (false = joiner/guest). */
+    val isHost = MutableLiveData(false)
     /** Current session code (e.g. "AK-4829"), shown in the UI. */
     val sessionCode = MutableLiveData("")
     /** User-safe error text for the two-device flow. */
@@ -99,7 +108,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
      * skip duplicates by id in case a packet is somehow delivered twice.
      */
     private fun addRemoteEntry(json: String) {
-        val entry = ConversationEntry.fromJson(json) ?: return  // ignore malformed packets
+        val entry = ConversationEntry.fromJson(json)?.copy(local = false) ?: return  // ignore malformed packets
         if (repository.getAll().any { it.id == entry.id }) return // dedupe by id
         repository.addEntry(entry)
         entries.postValue(repository.getAll())
@@ -111,20 +120,38 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
 
     private fun wireNearbyCallbacks() {
         nearbyService.onMessageReceived = { json ->
-            // Nearby callbacks may not be on the main thread; postValue is main-safe.
-            addRemoteEntry(json)
+            // Thread-agnostic: route the incoming payload onto the main thread so the
+            // shared conversation is only ever mutated on the UI thread.
+            runOnMain { addRemoteEntry(json) }
         }
         nearbyService.onConnected = {
-            connectionState.postValue(ConnectionState.CONNECTED)
+            // A real connection is established. It fires on BOTH devices at the same
+            // time, so clearing here makes the shared conversation start empty on both
+            // phones (R10). The UI observes CONNECTED to switch to the connected screen.
+            runOnMain {
+                clearConversation()
+                connectionState.postValue(ConnectionState.CONNECTED)
+            }
         }
         nearbyService.onDisconnected = {
-            // Peer left / link dropped. Fall back to IDLE; local thread is untouched.
-            connectionState.postValue(ConnectionState.IDLE)
+            // Peer left / link dropped. Fall back to IDLE and wipe the shared
+            // conversation so no transmitted text lingers after the session (R11/R12).
+            runOnMain {
+                clearConversation()
+                connectionState.postValue(ConnectionState.IDLE)
+            }
         }
         nearbyService.onError = { msg ->
-            connectionState.postValue(ConnectionState.ERROR)
-            syncError.postValue(msg)
+            runOnMain {
+                connectionState.postValue(ConnectionState.ERROR)
+                syncError.postValue(msg)
+            }
         }
+    }
+
+    /** Run [block] on the Android main thread; executes immediately if already there. */
+    private fun runOnMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) block() else mainHandler.post(block)
     }
 
     /** HOST: generate a code, switch to two-device mode, start advertising. */
@@ -132,6 +159,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         val code = generateSessionCode()
         sessionCode.value = code
         syncMode.value = SyncMode.TWO_DEVICE
+        isHost.value = true
         connectionState.value = ConnectionState.HOSTING
         syncError.value = null
         nearbyService.startHosting(code)
@@ -142,6 +170,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     fun joinSession(code: String) {
         sessionCode.value = code
         syncMode.value = SyncMode.TWO_DEVICE
+        isHost.value = false
         connectionState.value = ConnectionState.JOINING
         syncError.value = null
         nearbyService.joinSession(code)
@@ -156,6 +185,7 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
         nearbyService.stop()
         syncMode.value = SyncMode.SINGLE_DEVICE
         connectionState.value = ConnectionState.IDLE
+        isHost.value = false
         sessionCode.value = ""
         clearConversation()
     }

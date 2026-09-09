@@ -11,6 +11,7 @@ import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
 import java.io.File
+import kotlin.math.sqrt
 
 /**
  * WhisperSTTService — Offline Speech-to-Text using Vosk
@@ -24,12 +25,15 @@ class VoskSTTService(private val context: Context) {
     private val SAMPLE_RATE    = 16000
     private val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
     private val AUDIO_FORMAT   = AudioFormat.ENCODING_PCM_16BIT
+    // Read the mic in ~40ms slices so the live waveform gets ~25 updates/sec.
+    // Vosk is still fed the exact same continuous PCM stream, just in pieces.
+    private val AMPLITUDE_CHUNK = 640
 
     private var voskModel: Model? = null
     private var recognizer: Recognizer? = null
     private var audioRecord: AudioRecord? = null
     private var isRecording = false
-    private var currentLanguage = Language.FILIPINO
+    private var currentLanguage = Language.ENGLISH
     private var loadedLanguage: Language? = null  // tracks what's actually in memory
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -37,6 +41,10 @@ class VoskSTTService(private val context: Context) {
     var onTranscriptionResult: ((String) -> Unit)? = null
     var onRecordingStateChanged: ((RecordingState) -> Unit)? = null
     var onModelReady: (() -> Unit)? = null
+    // Real microphone RMS amplitude (0..1 smoothed). Fired while recording only.
+    var onLevel: ((Float) -> Unit)? = null
+
+    private var lastLevel = 0f
 
     enum class RecordingState { DORMANT, RECORDING, PROCESSING }
     enum class Language { FILIPINO, ENGLISH }
@@ -199,13 +207,22 @@ class VoskSTTService(private val context: Context) {
                 audioRecord?.startRecording()
                 Log.d(TAG, "Recording started")
 
-                val buffer = ShortArray(bufferSize)
+                val buffer = ShortArray(AMPLITUDE_CHUNK)
                 recognizer?.reset()
+                lastLevel = 0f
+                onLevel?.invoke(0f)
 
                 while (isRecording) {
-                    val read = audioRecord?.read(buffer, 0, bufferSize) ?: 0
+                    val read = audioRecord?.read(buffer, 0, AMPLITUDE_CHUNK) ?: 0
                     if (read > 0) {
+                        var sum = 0.0
+                        for (i in 0 until read) {
+                            val s = buffer[i].toDouble()
+                            sum += s * s
+                        }
+                        val rms = sqrt(sum / read)
                         recognizer?.acceptWaveForm(buffer, read)
+                        publishLevel((rms / Short.MAX_VALUE).toFloat())
                     }
                 }
 
@@ -240,7 +257,32 @@ class VoskSTTService(private val context: Context) {
         isRecording = false
     }
 
+    /** Smoothed raw RMS (0..1) -> display level. Fast attack, gentler decay so
+     *  the waveform does not flicker between reads. Called on the IO thread. */
+    private fun publishLevel(raw: Float) {
+        lastLevel = if (raw > lastLevel) {
+            lastLevel * 0.55f + raw * 0.45f
+        } else {
+            lastLevel * 0.78f + raw * 0.22f
+        }
+        // Sensitivity: raw RMS for normal speech is typically ~2-8% of full
+        // scale. A modest 3x gain (was 7x) keeps normal speech mid-sized, and
+        // the soft knee below means even full-scale input can never slam the
+        // display ceiling — the waveform stays comfortably inside its bounds.
+        val scaled = lastLevel * AMPLITUDE_SENSITIVITY
+        val soft = scaled / (1f + 1.2f * scaled)
+        onLevel?.invoke(soft.coerceIn(0f, 1f))
+    }
+
+    companion object {
+        private const val AMPLITUDE_SENSITIVITY = 3f
+    }
+
     fun getCurrentLanguage() = currentLanguage
+
+    /** True only when [language] is fully loaded and usable right now. */
+    fun isLanguageLoaded(language: Language): Boolean =
+        loadedLanguage == language && voskModel != null && recognizer != null
 
     fun close() {
         isRecording = false

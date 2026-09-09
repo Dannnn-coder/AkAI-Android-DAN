@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Circular 3D-style blue button: main top layer over a darker bottom/shadow layer -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:top="5dp">
+        <shape android:shape="oval">
+            <solid android:color="@color/akai_blue_shadow" />
+        </shape>
+    </item>
+    <item android:bottom="5dp">
+        <shape android:shape="oval">
+            <solid android:color="@color/akai_blue" />
+        </shape>
+    </item>
+</layer-list>
