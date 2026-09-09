@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Full-screen Host Session page (blue). Shows the generated session code,
+     waits for a real device to connect, and offers Cancel at the bottom.
+     Slides up/down via HostSessionOverlay; clickable root swallows touches. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/akai_blue"
+    android:clickable="true"
+    android:focusable="true">
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:id="@+id/tvHostTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/poppins_bold"
+            android:text="@string/dual_host_title"
+            android:textColor="@color/white"
+            android:textSize="30sp" />
+
+        <TextView
+            android:id="@+id/tvHostCode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="30dp"
+            android:fontFamily="@font/poppins_bold"
+            android:letterSpacing="0.05"
+            android:textColor="@color/white"
+            android:textSize="54sp" />
+
+        <!-- Fixed-height area for waiting text + loading indicator.
+             Reserves space so the Cancel button stays stable when connected. -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_marginTop="30dp">
+
+            <TextView
+                android:id="@+id/tvHostWaiting"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal|top"
+                android:fontFamily="@font/poppins_regular"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:text="@string/dual_host_waiting"
+                android:textColor="@color/white"
+                android:textSize="16sp" />
+
+            <!-- Custom white loading bar, visible while waiting for a peer to connect.
+                 Uses the app's existing LanguageLoadingBar animation style.
+                 Hidden automatically when CONNECTED or ERROR fires. -->
+            <com.akai.ui.LanguageLoadingBar
+                android:id="@+id/hostLoadingIndicator"
+                android:layout_width="140dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center_horizontal|bottom" />
+
+        </FrameLayout>
+
+    </LinearLayout>
+
+    <!-- Cancel: ORIGINAL general white button style (same as the app's other action
+         buttons). Bottom margin is raised for the nav/gesture bar at runtime. -->
+    <TextView
+        android:id="@+id/btnHostCancel"
+        android:layout_width="wrap_content"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="40dp"
+        android:minWidth="132dp"
+        android:gravity="center"
+        android:fontFamily="@font/poppins_bold"
+        android:text="@string/dual_action_cancel"
+        android:textColor="@color/akai_blue"
+        android:textSize="17sp"
+        android:background="@drawable/bg_btn_white_3d"
+        android:foreground="?attr/selectableItemBackground"
+        android:paddingStart="36dp"
+        android:paddingEnd="36dp"
+        android:clickable="true"
+        android:focusable="true" />
+
+</FrameLayout>

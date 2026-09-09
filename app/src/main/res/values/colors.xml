@@ -2,10 +2,58 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- ===== AkAI redesign palette ===== -->
+    <color name="akai_blue">#5796DB</color>
+    <color name="akai_blue_shadow">#4A6FCC</color>
+    <color name="akai_white">#FFFFFF</color>
+    <color name="akai_white_shadow">#9FB3E4</color>
+
+    <!-- Splash screen -->
+    <color name="splash_tagline">#5F6170</color>
+
+    <!-- Translucent / frosted surface used for the conversation overlay -->
+    <color name="conversation_panel_bg">#CCFFFFFF</color>
+
+    <!-- Legacy state colors (kept for compatibility) -->
     <color name="fsl_active">#1A237E</color>
     <color name="fsl_inactive">#263238</color>
     <color name="speech_active">#1B5E20</color>
     <color name="speech_inactive">#263238</color>
     <color name="background_dark">#121212</color>
     <color name="surface_dark">#1E1E1E</color>
+
+    <!-- ===== Theme-aware semantic colors (Light = default) ===== -->
+    <!-- App background -->
+    <color name="theme_bg">#FFFFFFFF</color>
+    <!-- Card / header / panel surface -->
+    <color name="theme_surface">#FFFFFFFF</color>
+    <!-- Primary text (headings, body) -->
+    <color name="theme_text_primary">#FF000000</color>
+    <!-- Secondary text (hints, labels) -->
+    <color name="theme_text_secondary">#FF888888</color>
+    <!-- Muted text (section titles) -->
+    <color name="theme_text_muted">#FFBDBDBD</color>
+    <!-- Settings row background -->
+    <color name="theme_row_bg">#FFE8E8E8</color>
+    <!-- Fingerspelling active color -->
+    <color name="fingerspell_active">#FF65B86E</color>
+    <!-- Conversation panel background -->
+    <color name="theme_conversation_panel">#CCFFFFFF</color>
+    <!-- Letter buffer panel background -->
+    <color name="theme_letter_buffer">#FFFFFFFF</color>
+    <!-- Sentence input background -->
+    <color name="theme_input_bg">#FFFFFFFF</color>
+    <!-- Mode switch pill container -->
+    <color name="theme_modeswitch_bg">#FFFFFFFF</color>
+    <!-- Sentence input placeholder text -->
+    <color name="theme_placeholder">#FFBDBDBD</color>
+    <!-- Sentence input text color -->
+    <color name="theme_sentence_text">#FF5796DB</color>
+    <!-- System status/navigation bar background (Light Mode: light bar) -->
+    <color name="theme_system_bar_bg">#FFFFFFFF</color>
+    <!-- Top app-bar header icon tint (Light Mode: brand blue icons on white header) -->
+    <color name="theme_header_icon">#FF5796DB</color>
+    <!-- AkAI brand title beside the logo (Light Mode: brand blue on the white header) -->
+    <color name="theme_title">#FF5796DB</color>
 </resources>

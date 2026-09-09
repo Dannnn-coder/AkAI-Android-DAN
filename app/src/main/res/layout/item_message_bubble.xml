@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Unified conversational message bubble supporting ANY side (left/right) and ANY
+     style (Deaf = blue bubble + speaker button; Hearing = white bubble):
+       - Avatar shows the SENDER initial (D / H) on the OUTER edge, whichever side.
+       - Bubble tail points at the avatar (start side) -> side == LEFT.
+       - Bubble tail points away (end side)             -> side == RIGHT.
+     Runtime (ConversationBubbleWidget) sets the row layout_gravity and reorders the
+     avatar so it always sits on the message's outer edge. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/bubbleRow"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="top"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+
+    <TextView
+        android:id="@+id/avatarDeaf"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:text="D"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:background="@drawable/avatar_bg_deaf"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/bubbleUnit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp">
+
+        <LinearLayout
+            android:id="@+id/textColumn"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvMessage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxWidth="260dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:background="@drawable/bubble_deaf" />
+
+            <TextView
+                android:id="@+id/tvTimestamp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#7A87A0"
+                android:textSize="10sp"
+                android:layout_marginTop="3dp" />
+
+        </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btnSpeakMessage"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="top"
+            android:layout_marginStart="6dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_circle_blue_3d"
+            android:contentDescription="@string/play_deaf_message_audio"
+            android:padding="7dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_volume_up_deaf"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/avatarHearing"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="8dp"
+        android:text="H"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:background="@drawable/avatar_bg_hearing"
+        android:visibility="gone" />
+
+</LinearLayout>

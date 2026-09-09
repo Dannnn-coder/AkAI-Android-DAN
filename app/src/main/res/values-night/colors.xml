@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ===== Dark Mode semantic colors ===== -->
+    <!-- App background -->
+    <color name="theme_bg">#FF121212</color>
+    <!-- Card / header / panel surface -->
+    <color name="theme_surface">#FF1E1E1E</color>
+    <!-- Primary text (headings, body) -->
+    <color name="theme_text_primary">#FFFFFFFF</color>
+    <!-- Secondary text (hints, labels) -->
+    <color name="theme_text_secondary">#FF999999</color>
+    <!-- Muted text (section titles) -->
+    <color name="theme_text_muted">#FFBDBDBD</color>
+    <!-- Settings row background -->
+    <color name="theme_row_bg">#FF263238</color>
+    <!-- Fingerspelling active color -->
+    <color name="fingerspell_active">#FF65B86E</color>
+    <!-- Conversation panel background -->
+    <color name="theme_conversation_panel">#E61E1E1E</color>
+    <!-- Letter buffer panel background -->
+    <color name="theme_letter_buffer">#FF1E1E1E</color>
+    <!-- Sentence input background (slightly elevated surface in dark mode) -->
+    <color name="theme_input_bg">#FF2A2A2A</color>
+    <!-- Mode switch pill container -->
+    <color name="theme_modeswitch_bg">#FF263238</color>
+    <!-- Sentence input placeholder text -->
+    <color name="theme_placeholder">#FF666666</color>
+    <!-- Sentence input text color -->
+    <color name="theme_sentence_text">#FF5796DB</color>
+    <!-- System status/navigation bar background (Dark Mode: dark bar) -->
+    <color name="theme_system_bar_bg">#FF121212</color>
+    <!-- Top app-bar header icon tint (Dark Mode: white icons on dark header) -->
+    <color name="theme_header_icon">#FFFFFFFF</color>
+    <!-- AkAI brand title beside the logo (Dark Mode: white on the dark header) -->
+    <color name="theme_title">#FFFFFFFF</color>
+    <!-- Splash tagline (lightened for readability on the dark splash frame) -->
+    <color name="splash_tagline">#FF9BA0AA</color>
+</resources>

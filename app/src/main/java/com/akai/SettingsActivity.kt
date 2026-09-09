@@ -1,10 +1,12 @@
 package com.akai
 
 import android.content.SharedPreferences
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
@@ -12,16 +14,22 @@ import android.speech.tts.UtteranceProgressListener
 import android.view.MotionEvent
 import android.view.View
 import android.widget.HorizontalScrollView
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.activity.OnBackPressedCallback
 import com.akai.data.AppPreferences
 import com.akai.service.VoicePersona
 import com.akai.service.VoicePersonaCatalog
+import com.akai.ui.AkaiNotification
 import com.akai.ui.ConversationBubbleWidget
 import java.util.Locale
 
@@ -31,7 +39,10 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var titleView: TextView
     private lateinit var backButton: TextView
     private lateinit var content: LinearLayout
+    private lateinit var scrollScroll: ScrollView
     private var currentPage = Page.MAIN
+    private var customPagePrefKey: String? = null
+    private var customPageColor: Int = 0
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
@@ -45,8 +56,16 @@ class SettingsActivity : AppCompatActivity() {
         private val KEY_DEAF_BUBBLE_COLOR   = AppPreferences.KEY_DEAF_BUBBLE_COLOR
         private val KEY_HEARING_BUBBLE_COLOR = AppPreferences.KEY_HEARING_BUBBLE_COLOR
         private val KEY_TTS_VOICE_PERSONA    = AppPreferences.KEY_TTS_VOICE_PERSONA
+        private val KEY_THEME_MODE          = AppPreferences.KEY_THEME_MODE
         private val DEFAULT_DEAF_BUBBLE_COLOR    = AppPreferences.DEFAULT_DEAF_BUBBLE_COLOR
         private val DEFAULT_HEARING_BUBBLE_COLOR = AppPreferences.DEFAULT_HEARING_BUBBLE_COLOR
+
+        // Instance-state keys: carry the exact Settings destination through the
+        // Activity recreation that AppCompat performs when the theme switches.
+        private const val STATE_PAGE            = "state_settings_page"
+        private const val STATE_SCROLL          = "state_settings_scroll"
+        private const val STATE_CUSTOM_PREF     = "state_custom_pref"
+        private const val STATE_CUSTOM_COLOR    = "state_custom_color"
 
         private val PASTEL_COLORS = listOf(
             Color.parseColor("#A7C7E7"),
@@ -54,12 +73,15 @@ class SettingsActivity : AppCompatActivity() {
             Color.parseColor("#D8B4E2"),
             Color.parseColor("#F4A7A3"),
             Color.parseColor("#FFD1A3"),
-            Color.parseColor("#D6D6D6")
+            Color.parseColor("#D6D6D6"),
+            Color.WHITE
         )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        applyThemeFromPreference()
 
         tts = TextToSpeech(this) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
@@ -81,7 +103,60 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
         buildBaseLayout()
-        renderMainPage()
+        // Sync the system status/navigation bars with the active theme.
+        SystemBarTheme.apply(this)
+
+        if (savedInstanceState != null) {
+            // The theme switch recreates the Activity via AppCompat. Instance state
+            // carries the EXACT destination (page, scroll, custom-color context) so
+            // the user stays on the same Settings section instead of being kicked
+            // back to the Settings root.
+            when (savedInstanceState.getString(STATE_PAGE)) {
+                AppPreferences.PAGE_AUDIO -> renderAudioPage()
+                AppPreferences.PAGE_PERSONALIZATION -> renderPersonalizationPage()
+                AppPreferences.PAGE_CUSTOM_COLOR -> {
+                    val prefKey = savedInstanceState.getString(STATE_CUSTOM_PREF)
+                        ?: AppPreferences.KEY_HEARING_BUBBLE_COLOR
+                    renderCustomColorPage(
+                        prefKey = prefKey,
+                        title = if (prefKey == AppPreferences.KEY_DEAF_BUBBLE_COLOR) "Custom Deaf Color" else "Custom Hearing Color",
+                        initialColor = savedInstanceState.getInt(STATE_CUSTOM_COLOR, DEFAULT_HEARING_BUBBLE_COLOR)
+                    )
+                }
+                else -> renderMainPage()
+            }
+            val savedScroll = savedInstanceState.getInt(STATE_SCROLL, 0)
+            scrollScroll.post { scrollScroll.scrollTo(0, savedScroll) }
+        } else {
+            // First entry: fall back to the persisted page so the destination also
+            // survives a process restart (e.g. the theme persisted across relaunch).
+            when (prefs().getString(AppPreferences.KEY_SETTINGS_PAGE, AppPreferences.PAGE_MAIN)) {
+                AppPreferences.PAGE_AUDIO -> renderAudioPage()
+                AppPreferences.PAGE_PERSONALIZATION, AppPreferences.PAGE_CUSTOM_COLOR -> renderPersonalizationPage()
+                else -> renderMainPage()
+            }
+            prefs().edit().remove(AppPreferences.KEY_SETTINGS_PAGE).apply()
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(
+            STATE_PAGE,
+            when (currentPage) {
+                Page.MAIN -> AppPreferences.PAGE_MAIN
+                Page.AUDIO -> AppPreferences.PAGE_AUDIO
+                Page.PERSONALIZATION -> AppPreferences.PAGE_PERSONALIZATION
+                Page.CUSTOM_COLOR -> AppPreferences.PAGE_CUSTOM_COLOR
+            }
+        )
+        if (::scrollScroll.isInitialized) {
+            outState.putInt(STATE_SCROLL, scrollScroll.scrollY)
+        }
+        if (currentPage == Page.CUSTOM_COLOR) {
+            customPagePrefKey?.let { outState.putString(STATE_CUSTOM_PREF, it) }
+            outState.putInt(STATE_CUSTOM_COLOR, customPageColor)
+        }
     }
 
     override fun onDestroy() {
@@ -90,21 +165,51 @@ class SettingsActivity : AppCompatActivity() {
         tts?.shutdown()
     }
 
+    private fun applyThemeFromPreference() {
+        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        val saved = prefs.getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES)
+        AppCompatDelegate.setDefaultNightMode(saved)
+    }
+
+    private fun isDarkMode(): Boolean {
+        val mode = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        return mode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+    }
+
+    private fun bgColor(): Int = if (isDarkMode()) Color.parseColor("#121212") else Color.WHITE
+    private fun surfaceColor(): Int = if (isDarkMode()) Color.parseColor("#1E1E1E") else Color.WHITE
+    private fun textColorPrimary(): Int = if (isDarkMode()) Color.WHITE else Color.BLACK
+    private fun rowBgColor(): Int = if (isDarkMode()) Color.parseColor("#263238") else Color.parseColor("#E8E8E8")
+    private fun hintColor(): Int = if (isDarkMode()) Color.parseColor("#999999") else Color.parseColor("#888888")
+    private fun selectedBgColor(): Int = if (isDarkMode()) Color.parseColor("#3949AB") else Color.parseColor("#5796DB")
+    private fun akaiBlue(): Int = ContextCompat.getColor(this, R.color.akai_blue)
+    private fun font(bold: Boolean): Typeface {
+        val styled = if (bold) resources.getFont(R.font.poppins_bold) else resources.getFont(R.font.poppins_regular)
+        return Typeface.create(styled, if (bold) Typeface.BOLD else Typeface.NORMAL)
+    }
+
     private fun buildBaseLayout() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212"))
+            setBackgroundColor(bgColor())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
+        }
+        // Edge-to-edge handling: never let the header sit under the status bar and
+        // keep the last content row clear of the navigation bar.
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, windowInsets ->
+            val bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(0, bars.top, 0, bars.bottom)
+            windowInsets
         }
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
             setPadding(dp(12), 0, dp(16), 0)
-            setBackgroundColor(Color.parseColor("#1E1E1E"))
+            setBackgroundColor(surfaceColor())
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(56)
@@ -112,11 +217,13 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         backButton = TextView(this).apply {
-            text = "<"
-            textSize = 24f
-            setTextColor(Color.WHITE)
-            gravity = android.view.Gravity.CENTER
-            setPadding(dp(10), 0, dp(14), 0)
+            val arrow = DrawableCompat.wrap(
+                resources.getDrawable(R.drawable.ic_back_arrow, null)
+            ).mutate()
+            DrawableCompat.setTint(arrow, textColorPrimary())
+            setCompoundDrawablesWithIntrinsicBounds(arrow, null, null, null)
+            compoundDrawablePadding = dp(6)
+            setPadding(dp(4), 0, dp(14), 0)
             isClickable = true
             isFocusable = true
             setOnClickListener { handleBack() }
@@ -125,29 +232,30 @@ class SettingsActivity : AppCompatActivity() {
         titleView = TextView(this).apply {
             text = "Settings"
             textSize = 20f
-            setTextColor(Color.WHITE)
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            typeface = font(bold = true)
+            setTextColor(textColorPrimary())
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         header.addView(backButton)
         header.addView(titleView)
 
-        val scroll = ScrollView(this).apply {
+        scrollScroll = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             )
+            overScrollMode = View.OVER_SCROLL_NEVER
         }
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(24))
         }
-        scroll.addView(content)
+        scrollScroll.addView(content)
 
         root.addView(header)
-        root.addView(scroll)
+        root.addView(scrollScroll)
         setContentView(root)
     }
 
@@ -159,24 +267,24 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-
-
     private fun renderMainPage() {
+        trackPage(Page.MAIN)
         currentPage = Page.MAIN
         titleView.text = "Settings"
         content.removeAllViews()
         content.addView(settingsRow("Audio") { renderAudioPage() })
-        content.addView(settingsRow("Personalization") { renderPersonalizationPage() })
+        content.addView(settingsRow("Personalization and Theme") { renderPersonalizationPage() })
     }
 
     private fun renderAudioPage() {
+        trackPage(Page.AUDIO)
         currentPage = Page.AUDIO
         titleView.text = "Audio"
         content.removeAllViews()
 
         val engine = tts
         if (!ttsReady || engine == null) {
-            content.addView(hintText("Loading voices…"))
+            content.addView(hintText("Loading voices..."))
             return
         }
 
@@ -187,27 +295,29 @@ class SettingsActivity : AppCompatActivity() {
         if (personas.isEmpty()) {
             content.addView(hintText("No offline voices found on your device."))
         } else {
-            content.addView(hintText("Tap ▶ to listen, tap the name to choose it."))
+            content.addView(hintText("Tap play to listen, tap the name to choose it."))
             personas.forEach { persona -> content.addView(personaRow(persona, persona.name == selectedName)) }
         }
     }
 
-    /** Tapping the name selects the persona; tapping ▶/❙❙ only previews it, without selecting. */
     private fun personaRow(persona: VoicePersona, selected: Boolean): LinearLayout {
         val isPlaying = previewingPersonaName == persona.name
+        val nameColor = if (selected) Color.WHITE else textColorPrimary()
+        val controlColor = if (selected) Color.WHITE else akaiBlue()
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
-            background = roundedRect(if (selected) Color.parseColor("#3949AB") else Color.parseColor("#263238"), 6f)
+            background = roundedRect(if (selected) selectedBgColor() else rowBgColor(), 6f)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 dp(54)
             ).apply { bottomMargin = dp(10) }
 
             addView(TextView(this@SettingsActivity).apply {
-                text = if (selected) "${persona.name} ✓" else persona.name
+                text = if (selected) "${persona.name} \u2713" else persona.name
                 textSize = 16f
-                setTextColor(Color.WHITE)
+                typeface = font(bold = false)
+                setTextColor(nameColor)
                 gravity = android.view.Gravity.CENTER_VERTICAL
                 setPadding(dp(16), 0, 0, 0)
                 isClickable = true
@@ -218,20 +328,22 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
             })
-            addView(TextView(this@SettingsActivity).apply {
-                text = if (isPlaying) "❙❙" else "▶"
-                textSize = 18f
-                setTextColor(Color.WHITE)
-                gravity = android.view.Gravity.CENTER
-                setPadding(dp(14), dp(14), dp(14), dp(14))
+            addView(ImageButton(this@SettingsActivity).apply {
+                setImageResource(if (isPlaying) R.drawable.ic_pause else R.drawable.ic_play)
+                imageTintList = ColorStateList.valueOf(controlColor)
+                background = roundedRect(Color.TRANSPARENT, 8f)
+                setPadding(dp(7), dp(7), dp(7), dp(7))
+                contentDescription = if (isPlaying) "Pause voice preview" else "Play ${persona.name} preview"
                 isClickable = true
                 isFocusable = true
                 setOnClickListener { togglePreview(persona) }
+                layoutParams = LinearLayout.LayoutParams(dp(42), dp(42)).apply {
+                    marginEnd = dp(6)
+                }
             })
         }
     }
 
-    /** Plays the English side of the persona, then the Filipino side (if paired), back to back. */
     private fun togglePreview(persona: VoicePersona) {
         val engine = tts ?: return
         if (previewingPersonaName == persona.name) {
@@ -280,15 +392,23 @@ class SettingsActivity : AppCompatActivity() {
         return TextView(this).apply {
             this.text = text
             textSize = 13f
-            setTextColor(Color.parseColor("#888888"))
+            typeface = font(bold = false)
+            setTextColor(hintColor())
             setPadding(0, 0, 0, dp(10))
         }
     }
 
     private fun renderPersonalizationPage() {
+        trackPage(Page.PERSONALIZATION)
         currentPage = Page.PERSONALIZATION
-        titleView.text = "Personalization"
+        titleView.text = "Personalization and Theme"
         content.removeAllViews()
+
+        // Theme selection
+        content.addView(sectionTitle("Theme"))
+        content.addView(themeSelectionRow())
+        content.addView(hintText("Choose your preferred appearance. Dark Mode is the default."))
+
         content.addView(previewBlock())
         content.addView(sectionTitle("Deaf Bubble"))
         content.addView(colorOptionsRow(KEY_DEAF_BUBBLE_COLOR, DEFAULT_DEAF_BUBBLE_COLOR))
@@ -296,19 +416,79 @@ class SettingsActivity : AppCompatActivity() {
         content.addView(colorOptionsRow(KEY_HEARING_BUBBLE_COLOR, DEFAULT_HEARING_BUBBLE_COLOR))
     }
 
+    /**
+     * Fixed-size segmented Light/Dark switch that mirrors the Home screen's Camera /
+     * Voice switcher visuals: flat themed pill + blue outline, selected segment raised
+     * 3D blue, unselected flat with blue label. No loading, no manual recreate — the
+     * theme applies instantly via AppCompat (the Activity recreates on its own).
+     */
+    private fun themeSelectionRow(): LinearLayout {
+        val isDark = prefs().getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES) == AppCompatDelegate.MODE_NIGHT_YES
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+            background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_mode_container)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(58)
+            ).apply { bottomMargin = dp(4) }
+            foreground = null
+        }
+
+        container.addView(modeSegment("LIGHT MODE", selected = !isDark) { selectTheme(dark = false) })
+        container.addView(modeSegment("DARK MODE", selected = isDark) { selectTheme(dark = true) })
+        return container
+    }
+
+    private fun modeSegment(label: String, selected: Boolean, onClick: () -> Unit): TextView {
+        return TextView(this).apply {
+            text = label
+            textSize = 13f
+            letterSpacing = 0.4f
+            typeface = font(bold = true)
+            setTextColor(if (selected) Color.WHITE else akaiBlue())
+            gravity = android.view.Gravity.CENTER
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+            background = if (selected) ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_mode_selected_3d) else null
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f).apply {
+                marginStart = dp(1)
+                marginEnd = dp(1)
+            }
+        }
+    }
+
+    private fun selectTheme(dark: Boolean) {
+        val newMode = if (dark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
+        if (prefs().getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES) == newMode) return
+        prefs().edit().putInt(KEY_THEME_MODE, newMode).apply()
+        // No manual recreate() and no loading: AppCompat recreates the Activity
+        // automatically and onCreate() restores the page the user was on.
+        AppCompatDelegate.setDefaultNightMode(newMode)
+    }
+
     private fun renderCustomColorPage(prefKey: String, title: String, initialColor: Int) {
+        trackPage(Page.CUSTOM_COLOR)
         currentPage = Page.CUSTOM_COLOR
         titleView.text = title
         content.removeAllViews()
 
-        var selectedColor = initialColor
+        // Keep the custom-color context in fields so the theme-switch recreation
+        // can put the user back on the exact same editing screen.
+        customPagePrefKey = prefKey
+        customPageColor = initialColor
+
         val previewContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
         fun updateCustomPreview() {
             previewContainer.removeAllViews()
             previewContainer.addView(previewBlock { pref ->
-                if (pref == prefKey) selectedColor else prefs().getInt(pref, defaultFor(pref))
+                if (pref == prefKey) customPageColor else prefs().getInt(pref, defaultFor(pref))
             })
         }
         updateCustomPreview()
@@ -316,7 +496,7 @@ class SettingsActivity : AppCompatActivity() {
         val wheel = ColorWheelView(this).apply {
             setColor(initialColor)
             onColorChanged = { color ->
-                selectedColor = color
+                customPageColor = color
                 updateCustomPreview()
             }
         }
@@ -327,10 +507,10 @@ class SettingsActivity : AppCompatActivity() {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     val hsv = FloatArray(3)
-                    Color.colorToHSV(selectedColor, hsv)
+                    Color.colorToHSV(customPageColor, hsv)
                     hsv[2] = progress.coerceAtLeast(8) / 100f
-                    selectedColor = Color.HSVToColor(hsv)
-                    wheel.setColor(selectedColor)
+                    customPageColor = Color.HSVToColor(hsv)
+                    wheel.setColor(customPageColor)
                     updateCustomPreview()
                 }
 
@@ -339,8 +519,8 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
         val save = settingsRow("Save Color") {
-            prefs().edit().putInt(prefKey, selectedColor).apply()
-            Toast.makeText(this, "Color saved", Toast.LENGTH_SHORT).show()
+            prefs().edit().putInt(prefKey, customPageColor).apply()
+            AkaiNotification.short(this@SettingsActivity, "Color saved")
             renderPersonalizationPage()
         }
 
@@ -359,10 +539,11 @@ class SettingsActivity : AppCompatActivity() {
         return TextView(this).apply {
             text = label
             textSize = 16f
-            setTextColor(Color.WHITE)
+            typeface = font(bold = false)
+            setTextColor(textColorPrimary())
             gravity = android.view.Gravity.CENTER_VERTICAL
             setPadding(dp(16), 0, dp(16), 0)
-            background = roundedRect(Color.parseColor("#263238"), 6f)
+            background = roundedRect(rowBgColor(), 6f)
             isClickable = true
             isFocusable = true
             setOnClickListener { onClick() }
@@ -379,7 +560,8 @@ class SettingsActivity : AppCompatActivity() {
         return TextView(this).apply {
             this.text = text
             textSize = 13f
-            setTextColor(Color.parseColor("#BDBDBD"))
+            typeface = font(bold = true)
+            setTextColor(akaiBlue())
             setPadding(0, dp(16), 0, dp(8))
         }
     }
@@ -410,7 +592,7 @@ class SettingsActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(color)
-                setStroke(dp(if (selected) 3 else 1), if (selected) Color.WHITE else Color.parseColor("#555555"))
+                setStroke(dp(if (selected) 3 else 1), if (selected) akaiBlue() else Color.parseColor("#555555"))
             }
             isClickable = true
             isFocusable = true
@@ -425,7 +607,8 @@ class SettingsActivity : AppCompatActivity() {
         return TextView(this).apply {
             text = "+"
             textSize = 22f
-            setTextColor(Color.WHITE)
+            typeface = font(bold = true)
+            setTextColor(akaiBlue())
             gravity = android.view.Gravity.CENTER
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
@@ -436,7 +619,7 @@ class SettingsActivity : AppCompatActivity() {
                 )
             ).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(dp(1), Color.parseColor("#555555"))
+                setStroke(dp(1), akaiBlue())
             }
             isClickable = true
             isFocusable = true
@@ -456,7 +639,19 @@ class SettingsActivity : AppCompatActivity() {
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(12), dp(12), dp(12))
-            background = roundedRect(Color.parseColor("#1E1E1E"), 6f)
+            // rowBgColor (not the light surface) so a WHITE bubble stays visible on
+            // the preview card in Light Mode; a thin border frames the card.
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat()
+                setColor(rowBgColor())
+                setStroke(
+                    dp(1),
+                    if (isDarkMode()) Color.parseColor("#3A3A3A") else Color.parseColor("#DDDDDD")
+                )
+            }
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(8)
+            }
             addView(previewBubble("Hello", deafColor, true))
             addView(previewBubble("Nice to meet you", hearingColor, false))
         }
@@ -476,6 +671,7 @@ class SettingsActivity : AppCompatActivity() {
         row.addView(TextView(this).apply {
             this.text = text
             textSize = 15f
+            typeface = font(bold = false)
             setTextColor(readableTextColor(color))
             setPadding(dp(12), dp(9), dp(12), dp(9))
             background = bubbleDrawable(color, deaf)
@@ -498,9 +694,23 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun roundedRect(color: Int, radiusDp: Float): GradientDrawable {
         return GradientDrawable().apply {
-            setColor(color)
             cornerRadius = radiusDp * resources.displayMetrics.density
+            if (color != Color.TRANSPARENT) {
+                setColor(color)
+            } else {
+                setColor(Color.TRANSPARENT)
+            }
         }
+    }
+
+    private fun trackPage(page: Page) {
+        val key = when (page) {
+            Page.MAIN -> AppPreferences.PAGE_MAIN
+            Page.AUDIO -> AppPreferences.PAGE_AUDIO
+            Page.PERSONALIZATION -> AppPreferences.PAGE_PERSONALIZATION
+            Page.CUSTOM_COLOR -> AppPreferences.PAGE_CUSTOM_COLOR
+        }
+        prefs().edit().putString(AppPreferences.KEY_SETTINGS_PAGE, key).apply()
     }
 
     private fun prefs(): SharedPreferences {

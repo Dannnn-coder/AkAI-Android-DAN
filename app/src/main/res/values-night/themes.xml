@@ -4,4 +4,14 @@
         <!-- Customize your dark theme here. -->
         <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
     </style>
+
+    <!-- Splash theme override for Dark Mode: the splash frame follows the theme
+         so the status-bar icons (white in dark mode) stay visible and no bright
+         white flash appears before the AkAI launch animation. -->
+    <style name="Theme.AkAI.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/theme_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_transparent</item>
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <item name="postSplashScreenTheme">@style/Theme.AkAI</item>
+    </style>
 </resources>

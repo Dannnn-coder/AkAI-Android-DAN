@@ -35,6 +35,15 @@ class SpotlightView(context: Context) : View(context) {
         invalidate()
     }
 
+    /** Sets how strongly the area OUTSIDE the highlight is dimmed. The Help overlay
+     *  starts with a LIGHT dim (the real screen stays clearly visible for
+     *  point-and-click selection) and switches to a DARK dim once a component is
+     *  selected / during tutorial steps. */
+    fun setDimColor(color: Int) {
+        dimPaint.color = color
+        invalidate()
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         if (w > 0 && h > 0) {

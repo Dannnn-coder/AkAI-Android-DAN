@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fingerspell / keyboard icon -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@color/white">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M20,7v10H4V7h16M22,5H2v14h20V5zM17.5,17h3v-3h-3V17zM13,17h3v-3h-3V17zM8.5,17h3v-3h-3V17zM4,17h3v-3H4V17zM17.5,13h3v-3h-3V13zM13,13h3v-3h-3V13zM8.5,13h3v-3h-3V13zM4,13h3v-3H4V13zM17.5,9h3V6h-3V9zM13,9h3V6h-3V9zM8.5,9h3V6h-3V9zM4,9h3V6H4V9z" />
+</vector>

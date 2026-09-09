@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Help: a large, bold BARE question mark (no circle around it).
+     Drawn with a thick stroked path + dot so it reads clearly inside the
+     circular button. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@color/theme_header_icon">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@color/white"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M8.5,8.8 C8.5,5.7 10.1,4.2 12.1,4.2 C14.5,4.2 15.7,6.1 15.7,8.1 C15.7,9.9 14.8,10.9 13.3,11.7 C12.4,12.2 12.1,12.6 12.1,13.5 L12.1,13.9" />
+    <path
+        android:fillColor="@color/white"
+        android:pathData="M12.1,17.1 m-1.3,0 a1.3,1.3 0 1 1 2.6,0 a1.3,1.3 0 1 1 -2.6,0" />
+</vector>

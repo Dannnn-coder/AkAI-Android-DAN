@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Conversation box: theme-aware surface. NOT faded, NO rounded corners,
+     so the small fade strip above transitions smoothly into it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/theme_conversation_panel" />
+</shape>
