@@ -26,7 +26,14 @@ import com.akai.R
  */
 object AkaiDialog {
 
-    data class Button(val label: String, val onClick: () -> Unit = {})
+    /**
+     * A dialog action button.
+     *
+     * [textOnly] renders the label as a plain text link with NO background / depth
+     * (the same look the step-by-step tutorial uses for its Skip control). All
+     * other buttons use the reusable brand-blue 3D pill.
+     */
+    data class Button(val label: String, val textOnly: Boolean = false, val onClick: () -> Unit = {})
 
     private var activeHost: ViewGroup? = null
     private var activeRoot: View? = null
@@ -150,6 +157,33 @@ object AkaiDialog {
      * longer labels never change the button's footprint.
      */
     private fun buildButton(activity: Activity, density: Float, button: Button): TextView {
+        // Text-only "Skip" control — mirrors the tutorial's Skip exactly: no button
+        // background, no 3D surface, no shadow/depth. Height matches the pill so the
+        // other button in the row never shifts.
+        if (button.textOnly) {
+            return TextView(activity).apply {
+                text = button.label
+                textSize = 13f
+                gravity = Gravity.CENTER_VERTICAL
+                setTextColor(Color.parseColor("#8FA6BE"))
+                typeface = poppins(activity, bold = true)
+                setPadding(dp(6, density), 0, dp(6, density), 0)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    dismissNow()
+                    button.onClick()
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dp(48, density)
+                ).apply {
+                    leftMargin = dp(6, density)
+                    rightMargin = dp(6, density)
+                }
+            }
+        }
+
         return TextView(activity).apply {
             text = button.label
             textSize = 14f

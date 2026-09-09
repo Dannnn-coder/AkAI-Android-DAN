@@ -102,7 +102,7 @@ class ContextualHelpOverlay(
         caption.view.setOnClickListener { }
 
         instructionText = TextView(activity).apply {
-            text = "Select a component"
+            text = "Select a component to read what it does."
             textSize = 17f
             gravity = Gravity.CENTER
             setTextColor(Color.parseColor("#E6FFFFFF"))
@@ -112,12 +112,19 @@ class ContextualHelpOverlay(
         }
 
         centerHost = FrameLayout(activity).apply {
+            // The caption must never be clipped when it translates up on Step 5: the
+            // host spans the FULL height (not just the caption), so a translated child
+            // stays inside its parent's bounds; clipChildren=false is defense-in-depth.
+            clipChildren = false
             addView(caption.view, FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
+                // Centered so the caption box is a proper centered text box on any
+                // screen size. In tutorial mode both margins match (no X button); in
+                // Help the extra right margin keeps clear of the middle-right X.
                 gravity = Gravity.CENTER
                 leftMargin = dp(24)
-                rightMargin = dp(64) // keep clear of the middle-right X
+                rightMargin = if (tutorial) dp(24) else dp(64)
             })
             if (!tutorial) {
                 addView(instructionText, FrameLayout.LayoutParams(
@@ -128,7 +135,7 @@ class ContextualHelpOverlay(
             }
         }
         root.addView(centerHost, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
         ).apply { gravity = Gravity.CENTER })
 
         if (!tutorial) {
@@ -202,11 +209,17 @@ class ContextualHelpOverlay(
     }
 
     /** Smoothly places the caption for the current step: centered for steps 1-4,
-     *  raised slightly for the conversation step (5), back to center on the last step. */
+     *  raised slightly for the conversation step (5), back to center on the last step.
+     *  The lift is capped so the WHOLE caption always stays fully on screen — it can
+     *  never disappear or bury the tutorial controls. */
     private fun animateCaptionForStep(index: Int) {
         val toY = if (index == targets.lastIndex - 1) {
-            // Step 5: lift the caption so the bottom conversation area is visible.
-            -caption.view.height.toFloat() - dp(24)
+            // Step 5: lift the caption so the bottom conversation area is visible,
+            // but never so far that the card (and its controls) leave the screen.
+            val desiredLift = (caption.view.height + dp(24)).toFloat()
+            val centerY = root.height / 2f
+            val maxLift = (centerY - caption.view.height / 2f - dp(16)).coerceAtLeast(0f)
+            -minOf(desiredLift, maxLift)
         } else {
             // Steps 1-4 and the final step: normal centered position.
             0f
@@ -237,7 +250,8 @@ class ContextualHelpOverlay(
     private fun handleTouch(view: View, event: MotionEvent) {
         if (event.actionMasked != MotionEvent.ACTION_DOWN) return
         if (tutorial) return
-        if (currentIndex >= 0) return
+        // Every touch re-selects: the user can inspect one component, then tap a
+        // DIFFERENT component to read its description without ever closing Help.
         hitTest(event.x, event.y)?.let { selectTarget(it) }
     }
 

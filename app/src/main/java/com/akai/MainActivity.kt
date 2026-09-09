@@ -212,7 +212,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                 title = "Welcome to AkAI",
                 message = "Is this your first time using AkAI?",
                 buttons = listOf(
-                    AkaiDialog.Button("Skip") { markOnboardingSeen() },
+                    AkaiDialog.Button("Skip", textOnly = true) { markOnboardingSeen() },
                     AkaiDialog.Button("Yes, show me around") { startCoachMarkTutorial() }
                 )
             )
