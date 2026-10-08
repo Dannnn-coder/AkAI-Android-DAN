@@ -29,7 +29,7 @@ class FSLRecognitionService(private val context: Context) {
     private val MODEL_FILE        = "akai_model.tflite"
     private val ACTIONS_FILE      = "actions.txt"
     private val SEQ_LENGTH_FILE   = "sequence_length.txt"
-    private val FEATURE_DIM       = 138
+    private val FEATURE_DIM       = 156   // 138 landmark/pose + 18 finger-geometry (9 per hand)
     private val CONFIDENCE_THRESHOLD = 0.35f
     private val STABLE_REQUIRED   = 2
     private val PREDICT_EVERY_N   = 3
@@ -76,9 +76,12 @@ class FSLRecognitionService(private val context: Context) {
             // Load actions
             actions = context.assets.open(ACTIONS_FILE)
                 .bufferedReader().readLines().filter { it.isNotBlank() }
-            Log.d(TAG, "Actions loaded: ${actions.size} gestures — $actions")
+            Log.d(TAG, "Actions loaded: ${actions.size} gestures")
 
-            // Load TFLite model
+            // Load TFLite model. The combined model uses SELECT_TF_OPS
+            // (FlexTensorListReserve etc.); in tensorflow-lite-select-tf-ops the
+            // Flex ops are auto-registered simply by having the dependency on the
+            // classpath, so a plain Interpreter is enough.
             val modelBuffer = loadModelFile()
             val options = Interpreter.Options().apply { setNumThreads(2) }
             interpreter = Interpreter(modelBuffer, options)
@@ -112,9 +115,9 @@ class FSLRecognitionService(private val context: Context) {
             Log.d(TAG, "PoseLandmarker ready")
 
         } catch (e: UnsatisfiedLinkError) {
-            Log.w(TAG, "MediaPipe not available on this device/emulator: ${e.message}")
-        } catch (e: Exception) {
-            Log.e(TAG, "Model load failed: ${e.message}")
+            Log.w(TAG, "MediaPipe native library not available on this device: ${e.message}")
+        } catch (e: Throwable) {
+            Log.e(TAG, "Model load failed: ${e.javaClass.simpleName}: ${e.message}", e)
         }
     }
 
@@ -236,6 +239,42 @@ class FSLRecognitionService(private val context: Context) {
         }
     }
 
+    // 9 finger-discriminating features from a scale-normalized hand (21 landmarks, flat 63 = 21*3).
+    // MUST stay IDENTICAL to dataset_builder.py / live_recognizer.py finger_geometry():
+    //   5 curls  : fingertip -> wrist distance for thumb(4), index(8), middle(12), ring(16), pinky(20)
+    //   4 spreads: adjacent fingertip -> fingertip distance (4-8, 8-12, 12-16, 16-20)
+    // The incoming hand array is already wrist-centered + scale-normalized, so the wrist (index 0)
+    // is the origin (0,0,0) and a curl is simply the tip's distance from the origin.
+    // An all-zero hand (not detected) yields all-zero geometry.
+    private fun fingerGeometry(hand: FloatArray): FloatArray {
+        val out = FloatArray(9)
+        // all-zero hand -> all-zero geometry (matches Python `if not np.any(centered)`)
+        var any = false
+        for (v in hand) { if (v != 0f) { any = true; break } }
+        if (!any) return out
+
+        fun x(i: Int) = hand[i * 3]
+        fun y(i: Int) = hand[i * 3 + 1]
+        fun z(i: Int) = hand[i * 3 + 2]
+        fun dist(ax: Float, ay: Float, az: Float, bx: Float, by: Float, bz: Float): Float {
+            val dx = ax - bx; val dy = ay - by; val dz = az - bz
+            return Math.sqrt((dx * dx + dy * dy + dz * dz).toDouble()).toFloat()
+        }
+
+        // wrist is index 0 (already centered -> origin after normalization)
+        val wx = x(0); val wy = y(0); val wz = z(0)
+        val tips = intArrayOf(4, 8, 12, 16, 20)
+        for ((k, t) in tips.withIndex()) {
+            out[k] = dist(x(t), y(t), z(t), wx, wy, wz)   // 5 curls
+        }
+        val pairs = arrayOf(intArrayOf(4, 8), intArrayOf(8, 12), intArrayOf(12, 16), intArrayOf(16, 20))
+        for ((k, p) in pairs.withIndex()) {
+            val a = p[0]; val b = p[1]
+            out[5 + k] = dist(x(a), y(a), z(a), x(b), y(b), z(b))   // 4 spreads
+        }
+        return out
+    }
+
     private fun extractKeypoints(
         handResult: HandLandmarkerResult?,
         poseResult: PoseLandmarkerResult?
@@ -303,7 +342,13 @@ class FSLRecognitionService(private val context: Context) {
             }
         }
 
-        return lhRaw + rhRaw + poseRaw
+        // Finger-geometry features (NEW): 9 per hand, derived from the already scale-normalized
+        // hands above. MUST match dataset_builder.py / live_recognizer.py. Vector layout (156):
+        //   [0:63] LH, [63:126] RH, [126:138] pose, [138:147] LH finger-geom, [147:156] RH finger-geom
+        val lhFg = fingerGeometry(lhRaw)
+        val rhFg = fingerGeometry(rhRaw)
+
+        return lhRaw + rhRaw + poseRaw + lhFg + rhFg   // 156 total
     }
 
     private fun padSequence(): FloatArray {
