@@ -33,3 +33,4 @@ keystore.properties
 # IDE
 .idea/
 *.iml
+app/src/main/assets/_backup_*/
