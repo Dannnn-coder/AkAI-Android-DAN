@@ -2,7 +2,7 @@
 
 **AkAI** is an offline Android app that lets a Deaf or Hard-of-Hearing user and a hearing user hold a two-way conversation on one shared device. The Deaf user signs Filipino Sign Language (FSL) to the camera; the hearing user speaks into the microphone; both read the result in a shared conversation thread. Everything runs **on-device** — no internet required.
 
-**Team:** 0xACE · 2526-sem2-IT332-10 · CIT-U BSIT
+**Team:** 0xACE · 2526-sem2-IT411-10 · CIT-U BSIT 4th Year
 
 ---
 
