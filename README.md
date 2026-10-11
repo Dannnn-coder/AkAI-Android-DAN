@@ -1,17 +1,20 @@
-# AkAI — Android Application
+# AkAI — Android App
 
-A native Android app for real-time Filipino Sign Language (FSL) recognition using MediaPipe and TensorFlow Lite LSTM.
+**AkAI** is an offline Android app that lets a Deaf or Hard-of-Hearing user and a hearing user hold a two-way conversation on one shared device. The Deaf user signs Filipino Sign Language (FSL) to the camera; the hearing user speaks into the microphone; both read the result in a shared conversation thread. Everything runs **on-device** — no internet required.
 
-**Team:** 0xACE | 2526-sem2-IT332-10 | CIT-U BSIT 4th Year
+**Team:** 0xACE · 2526-sem2-IT332-10 · CIT-U BSIT
 
 ---
 
-## What It Does
+## Features
 
-- **FSL Sign Recognition** — detects FSL hand gestures using the device camera in real time
-- **Fingerspelling** — recognizes FSL alphabet letters one by one and assembles them into words
-- **Speech-to-Text** — converts hearing user's spoken response to text (coming soon)
-- **Shared Conversation Thread** — both users see the full conversation on one shared screen
+- **FSL Sign Recognition** — recognizes FSL **word** signs from the camera in real time (MediaPipe landmarks → TFLite LSTM).
+- **Fingerspelling + Word Assembly** — recognizes FSL alphabet letters one at a time and assembles them into words, with a Top-3 panel so the user taps the intended letter.
+- **Speech-to-Text** — transcribes the hearing user's **Filipino or English** speech offline with Vosk, selectable via a language toggle (default Filipino).
+- **Shared Conversation Thread** — every sent message appears as a chat bubble on the correct side (Deaf / Hearing), in chronological order.
+- **Optional Two-Device Mode** — two phones can pair directly over **Google Nearby Connections** (Bluetooth / Wi-Fi Direct) and share one conversation thread; only text crosses the link, still fully offline.
+
+> **Privacy:** conversation data lives in memory for the session only — no database, no accounts, no camera or audio is ever stored. (Complies with RA 10173.)
 
 ---
 
@@ -20,12 +23,16 @@ A native Android app for real-time Filipino Sign Language (FSL) recognition usin
 | Component | Technology |
 |---|---|
 | Language | Kotlin |
-| UI | XML layouts |
+| Architecture | MVVM (Activity + ViewModel + Repository) |
+| UI | XML layouts + programmatic chat bubbles |
 | Camera | CameraX 1.3.1 |
-| Hand Landmark Detection | MediaPipe Tasks Vision 0.10.14 |
-| ML Inference | TensorFlow Lite 2.14.0 + select-tf-ops |
-| Async | Kotlin Coroutines |
-| Min SDK | API 26 (Android 8.0) |
+| Hand & Pose Landmarks | MediaPipe Tasks Vision 0.10.14 (HandLandmarker + PoseLandmarker) |
+| ML Inference | TensorFlow Lite 2.14.0 + `select-tf-ops` (LSTM support) |
+| Speech-to-Text | Vosk 0.3.47 (offline, Filipino + English) |
+| Device-to-device sync | Google Play Services Nearby 19.3.0 |
+| Async | Kotlin Coroutines 1.7.3 |
+| Build | AGP 8.3.2 · Kotlin 1.9.22 |
+| Min / Target SDK | API 26 (Android 8.0) / API 36 · ARM64 only |
 
 ---
 
@@ -34,65 +41,97 @@ A native Android app for real-time Filipino Sign Language (FSL) recognition usin
 ```
 app/src/main/
 ├── java/com/akai/
-│   ├── MainActivity.kt          ← camera, UI, mode switcher, conversation thread
-│   └── FSLRecognitionService.kt ← MediaPipe + TFLite LSTM inference pipeline
-├── res/
-│   ├── layout/
-│   │   ├── activity_main.xml        ← main screen layout
-│   │   ├── item_message_deaf.xml    ← blue chat bubble (deaf user)
-│   │   └── item_message_hearing.xml ← green chat bubble (hearing user)
-│   └── drawable/                ← bubble shapes, avatar backgrounds
-└── assets/                      ← model files (not in git — copy manually)
-    ├── akai_model.tflite        ← trained LSTM model
-    ├── hand_landmarker.task     ← MediaPipe hand detection model
-    ├── actions.txt              ← gesture class labels
-    └── sequence_length.txt      ← model sequence length
+│   ├── MainActivity.kt              ← camera, UI, mode switching, conversation screen
+│   ├── SplashActivity.kt            ← splash + model preload
+│   ├── PermissionActivity.kt        ← camera/mic permission flow
+│   ├── SettingsActivity.kt          ← app settings
+│   ├── DictionaryActivity.kt        ← FSL sign reference
+│   ├── data/
+│   │   ├── ConversationEntry.kt     ← one message (id, text, sender, timestamp)
+│   │   ├── ConversationRepository.kt← in-memory message store (session only)
+│   │   └── AppPreferences.kt        ← user settings
+│   ├── viewmodel/
+│   │   └── ConversationViewModel.kt ← conversation state + broadcast to peer
+│   ├── service/
+│   │   ├── FSLRecognitionService.kt ← MediaPipe landmarks → 156-feature vector → TFLite LSTM
+│   │   ├── VoskSTTService.kt        ← offline Filipino/English speech-to-text
+│   │   ├── WordAssemblyLayer.kt     ← assembles fingerspelled letters into words
+│   │   ├── NearbySyncService.kt     ← two-device conversation sync
+│   │   └── LanguageHeuristics.kt    ← language helpers
+│   └── ui/
+│       ├── ConversationBubbleWidget.kt ← chat bubble (styled by Deaf/Hearing side)
+│       ├── CoachMarkTutorial.kt / SpotlightView.kt ← onboarding
+│       └── ... overlays, dialogs, waveform view
+├── res/                             ← layouts, drawables, themes
+└── assets/                          ← model files (git-ignored — see Setup)
+    ├── akai_model.tflite            ← trained FSL LSTM model
+    ├── actions.txt                  ← 50 class labels (one per line)
+    ├── sequence_length.txt          ← model sequence length (106)
+    ├── hand_landmarker.task         ← MediaPipe hand detection model
+    └── pose_landmarker.task         ← MediaPipe pose detection model
 ```
+
+The large Vosk Filipino voice model ships through **Play Asset Delivery** (the `models_pack` module), not in the base APK.
 
 ---
 
 ## Setup
 
 ### Requirements
-- Android Studio Iguana 2023.2.1+
-- Android phone with API 26+ (ARM64)
-- Model files from the ML repo.
+- Android Studio Iguana (2023.2.1) or newer
+- A **physical ARM64 Android device**, API 26+ (MediaPipe does not run on x86_64 emulators)
+- The model files below (not committed to git — they're too large)
 
 ### Steps
+1. Clone this repo.
+2. Place the model files into `app/src/main/assets/`:
 
-1. Clone this repo
-2. Copy these files into `app/src/main/assets/`:
-   - `akai_model.tflite` — from `LINKFSL-MODEL/linkfsl-model/models/`
-   - `hand_landmarker.task` — download from MediaPipe
-   - `actions.txt` — from `LINKFSL-MODEL/linkfsl-model/models/`
-   - `sequence_length.txt` — from `LINKFSL-MODEL/linkfsl-model/models/`
-3. Open in Android Studio → Sync → Run on physical ARM device
+   | File | Where it comes from |
+   |---|---|
+   | `akai_model.tflite` | ML repo → `linkfsl-model/models/` |
+   | `actions.txt` | ML repo → `linkfsl-model/models/` |
+   | `sequence_length.txt` | ML repo → `linkfsl-model/models/` (value **106**) |
+   | `hand_landmarker.task` | MediaPipe (see below) |
+   | `pose_landmarker.task` | MediaPipe (see below) |
 
-### Download hand_landmarker.task
+3. Open in Android Studio → **Sync Gradle** → **Run** on a connected physical device.
+
+### Download the MediaPipe `.task` models
 ```powershell
 Invoke-WebRequest -Uri "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task" -OutFile "app/src/main/assets/hand_landmarker.task"
+Invoke-WebRequest -Uri "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker.task" -OutFile "app/src/main/assets/pose_landmarker.task"
 ```
 
----
-
-## ML Model
-
-The LSTM model (`akai_model.tflite`) is trained in the companion ML repo:
-- **Architecture:** LSTM 64→128→64 → Dense 128 → Dense N_classes
-- **Input:** `[1, SEQUENCE_LENGTH, 138]` — sequence of 138-feature keypoint vectors
-- **Features:** Left hand (63) + Right hand (63) + Upper pose (12) = 138, wrist-centered
-- **Classes:** 26 FSL alphabet letters + word gestures
+### Release signing
+Release builds are signed from a `keystore.properties` file at the repo root (git-ignored). Without it, debug builds still work and release signing is skipped gracefully.
 
 ---
 
-## Important Notes
+## The FSL Model
 
-- **MediaPipe requires a physical ARM device** — does not work on x86_64 emulators
-- **Model files are not in git** — too large, copy manually from ML repo
-- After retraining, replace `akai_model.tflite`, `actions.txt`, and `sequence_length.txt`
+The LSTM model (`akai_model.tflite`) is trained in the companion ML repo and exported to TFLite.
+
+- **Input:** `[1, SEQUENCE_LENGTH, 156]` — a sequence of 156-element keypoint vectors (SEQUENCE_LENGTH = 106).
+- **Feature vector (156 per frame):**
+  - Left hand — 21 landmarks × 3 = **63** (wrist-centered, scale-normalized)
+  - Right hand — 21 landmarks × 3 = **63**
+  - Upper pose — nose + shoulders + left elbow × 3 = **12** (nose-centered)
+  - Finger geometry — **18** (9 per hand: 5 finger-curl + 4 fingertip-spread distances)
+- **Architecture:** LSTM 64 → 128 → 64 → Dense 128 → Dense(N) softmax.
+- **Classes:** 50 total — 26 FSL alphabet letters + 24 word signs.
+
+> The feature-extraction logic in `FSLRecognitionService.kt` **must stay identical** to the ML repo's `dataset_builder.py` / `live_recognizer.py`. A mismatch silently breaks live inference even at high validation accuracy.
+
+---
+
+## Notes
+
+- **Physical ARM64 device required** — MediaPipe does not work on x86_64 emulators.
+- **Model files are git-ignored** — copy them in manually as shown above.
+- **After retraining**, replace `akai_model.tflite`, `actions.txt`, and `sequence_length.txt` and confirm the feature vector / sequence length still match the Kotlin constants.
 
 ---
 
 ## Related Repo
 
-ML training pipeline: `LINKFSL-MODEL` — dataset builder, augmentation, LSTM training, TFLite conversion
+**`linkfsl-model`** — the ML training pipeline: dataset builder, keypoint extraction, augmentation, LSTM training, evaluation (LOSO), and TFLite conversion.
