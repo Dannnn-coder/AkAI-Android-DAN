@@ -12,6 +12,7 @@ import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.view.View
 import android.view.ViewGroup
+import android.view.MotionEvent
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -62,6 +63,12 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private lateinit var tvPrediction: TextView
     private lateinit var scrollConversation: ScrollView
     private lateinit var conversationContainer: LinearLayout
+    // Conversation box resize (drag the top handle to cover the camera or shrink to ~one bubble)
+    private lateinit var conversationArea: LinearLayout
+    private lateinit var conversationDragHandle: View
+    private lateinit var cameraStage: android.widget.FrameLayout
+    private var conversationDragStartY = 0f
+    private var conversationDragStartHeight = 0
     private lateinit var btnFSLMode: LinearLayout
     private lateinit var btnSpeechMode: LinearLayout
     private lateinit var tvFSLStatus: TextView
@@ -128,6 +135,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
     private var top3Labels = listOf<String>()
     private lateinit var sessionTag: android.widget.LinearLayout
     private lateinit var sessionTagCode: android.widget.TextView
+    private lateinit var retryPanel: LinearLayout
+    private lateinit var tvRetryCue: TextView
+    private lateinit var btnRetry: TextView
 
     private lateinit var cameraExecutor: ExecutorService
     private var cameraRunning = false
@@ -152,6 +162,11 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         private const val LANGUAGE_LOAD_TIMEOUT_MS = 12000L
         // Absolute cap before the transition gives up and restores the previous mode.
         private const val MODE_READY_TIMEOUT_MS = 8000L
+        // Conversation box resize: fixed vertical chrome that never resizes — reset
+        // button (48) + fade (10) above the box, plus the drag-handle row (24) at the
+        // top INSIDE the box. The scroll below can shrink to ~one message bubble.
+        private const val CONVERSATION_CHROME_DP = 82
+        private const val CONVERSATION_MIN_SCROLL_DP = 88
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO
@@ -182,6 +197,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         textToSpeech = TextToSpeech(this, this)
 
         bindViews()
+        setupConversationResize()
         setupTop3Panel()
         setupSentenceBuilder()
         setupLetterBuffer()
@@ -407,6 +423,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         tvPrediction          = findViewById(R.id.tvPrediction)
         scrollConversation    = findViewById(R.id.scrollConversation)
         conversationContainer = findViewById(R.id.conversationContainer)
+        conversationArea      = findViewById(R.id.conversationArea)
+        conversationDragHandle = findViewById(R.id.conversationDragHandle)
+        cameraStage           = findViewById(R.id.cameraStage)
         btnFSLMode            = findViewById(R.id.btnFSLMode)
         btnSpeechMode         = findViewById(R.id.btnSpeechMode)
         tvFSLStatus           = findViewById(R.id.tvFSLStatus)
@@ -453,6 +472,45 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         btnDismissTop3        = findViewById(R.id.btnDismissTop3)
         sessionTag            = findViewById(R.id.sessionTag)
         sessionTagCode        = findViewById(R.id.sessionTagCode)
+        retryPanel            = findViewById(R.id.retryPanel)
+        tvRetryCue            = findViewById(R.id.tvRetryCue)
+        btnRetry              = findViewById(R.id.btnRetry)
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    /** Makes the conversation box user-resizable: dragging the handle at its top edge
+     *  slides the box up to cover the whole camera or down to ~one message bubble. */
+    private fun setupConversationResize() {
+        val minHeightPx = dp(CONVERSATION_CHROME_DP + CONVERSATION_MIN_SCROLL_DP)
+        conversationDragHandle.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    conversationDragStartY = event.rawY
+                    conversationDragStartHeight = conversationArea.height
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (conversationDragStartHeight > 0) {
+                        val delta = (event.rawY - conversationDragStartY).toInt()
+                        val newHeight = conversationDragStartHeight - delta
+                        // Clamp between ~one bubble and the full camera stage height.
+                        val clamped = newHeight.coerceIn(minHeightPx, cameraStage.height)
+                        if (clamped != conversationArea.height) {
+                            val lp = conversationArea.layoutParams
+                            lp.height = clamped
+                            conversationArea.layoutParams = lp
+                        }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    conversationDragStartHeight = 0
+                    true
+                }
+                else -> false
+            }
+        }
     }
 
     private fun setupTop3Panel() {
@@ -460,6 +518,28 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         btnChoice2.setOnClickListener { selectChoice(1) }
         btnChoice3.setOnClickListener { selectChoice(2) }
         btnDismissTop3.setOnClickListener { top3Panel.visibility = View.GONE }
+        // "Try again" — clears the recognition buffers and returns to the empty state
+        // so the user can re-sign the uncertain word.
+        btnRetry.setOnClickListener {
+            viewModel.fslService.clearBuffer()
+            hideRetryPrompt()
+            tvPrediction.text = "Show your hands..."
+        }
+    }
+
+    /** "Not sure — try again" cue: replaces the empty / Top 3 states with a clear
+     *  prompt to re-sign, so a dropped low-confidence word never reads as a silent
+     *  failure to a deaf user. */
+    private fun showRetryPrompt(label: String) {
+        top3Panel.visibility = View.GONE
+        tvPrediction.visibility = View.GONE
+        tvRetryCue.text = "Did you sign \"$label\"? I'm not sure — try again."
+        retryPanel.visibility = View.VISIBLE
+    }
+
+    private fun hideRetryPrompt() {
+        retryPanel.visibility = View.GONE
+        tvPrediction.visibility = View.VISIBLE
     }
 
     private fun setupSettings() {
@@ -660,6 +740,9 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
                     lastRenderedCount = 0
                     sentenceWords.clear()
                     updateSentenceDraft()
+                    viewModel.fslService.clearBuffer()
+                    hideRetryPrompt()
+                    tvPrediction.text = "Show your hands..."
                 }
             )
         )
@@ -761,6 +844,7 @@ private fun enterFingerspellMode() {
         viewModel.fslService.recognitionMode = FSLRecognitionService.RecognitionMode.LETTERS
         viewModel.fslService.clearBuffer()
         top3Panel.visibility = View.GONE
+        hideRetryPrompt()
         btnFingerspell.setBackgroundResource(R.drawable.bg_circle_green_3d)
         tvPrediction.text = "Fingerspell a word..."
     }
@@ -770,6 +854,7 @@ private fun enterFingerspellMode() {
         viewModel.fslService.recognitionMode = FSLRecognitionService.RecognitionMode.WORDS
         viewModel.fslService.clearBuffer()
         top3Panel.visibility = View.GONE
+        hideRetryPrompt()
         letterBufferPanel.visibility = View.GONE
         btnFingerspell.setBackgroundResource(R.drawable.bg_circle_blue_3d)
         tvPrediction.text = "Show your hands..."
@@ -905,14 +990,24 @@ private fun enterFingerspellMode() {
     }
 
     private fun setupFSLCallbacks() {
-        viewModel.fslService.onGestureRecognized = { gesture ->
-            runOnUiThread { tvPrediction.text = gesture.uppercase() }
+        viewModel.fslService.onGestureRecognized = { (gesture, confidence) ->
+            runOnUiThread {
+                hideRetryPrompt()
+                // Confidence indicator: the recognized sign plus its certainty.
+                tvPrediction.text = "${gesture.uppercase()} · ${(confidence * 100).toInt()}%"
+            }
         }
-        viewModel.fslService.onLetterDetected = { letter ->
-            runOnUiThread { tvPrediction.text = letter }
+        viewModel.fslService.onLetterDetected = { (letter, confidence) ->
+            runOnUiThread {
+                hideRetryPrompt()
+                tvPrediction.text = "$letter · ${(confidence * 100).toInt()}%"
+            }
         }
         viewModel.fslService.onTop3Ready = { top3 ->
             runOnUiThread { showTop3(top3) }
+        }
+        viewModel.fslService.onLowConfidence = { label ->
+            runOnUiThread { showRetryPrompt(label) }
         }
     }
 
@@ -1083,6 +1178,7 @@ private fun enterFingerspellMode() {
         viewModel.switchToFSL()
         exitFingerspellMode()
         top3Panel.visibility = View.GONE
+        hideRetryPrompt()
         updateLetterBuffer()
         // Restore the camera area and resume the camera.
         voiceOverlay.visibility = View.GONE
@@ -1109,6 +1205,7 @@ private fun enterFingerspellMode() {
         viewModel.switchToSpeech()
         exitFingerspellMode()
         top3Panel.visibility = View.GONE
+        hideRetryPrompt()
         updateLetterBuffer()
         // Blue voice area replaces the camera; no fingerspell/word-builder controls.
         voiceOverlay.visibility = View.VISIBLE
@@ -1428,6 +1525,9 @@ private fun enterFingerspellMode() {
 
     private fun showTop3(top3: List<Pair<String, Float>>) {
         if (top3.isEmpty() || viewModel.isFSLMode.value == false) return
+        // While the "not sure — try again" cue is up it takes priority over the
+        // suggestion panel; otherwise it would pop over the cue on every inference.
+        if (retryPanel.visibility == View.VISIBLE) return
         top3Labels = top3.map { it.first }
         val views = listOf(Pair(tvChoice1, tvConf1), Pair(tvChoice2, tvConf2), Pair(tvChoice3, tvConf3))
         val buttons = listOf(btnChoice1, btnChoice2, btnChoice3)
@@ -1436,7 +1536,10 @@ private fun enterFingerspellMode() {
         }
         top3.forEachIndexed { i, (label, conf) ->
             views[i].first.text = label.uppercase()
+            // Confidence indicator: reveal the pre-existing certainty label
+            // (it was computed but never shown).
             views[i].second.text = "${(conf * 100).toInt()}%"
+            views[i].second.visibility = View.VISIBLE
             buttons[i].setBackgroundResource(R.drawable.bg_suggestion_white_3d)
         }
         top3Panel.visibility = View.VISIBLE
