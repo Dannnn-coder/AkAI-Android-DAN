@@ -68,8 +68,8 @@ class VoskSTTService(private val context: Context) {
                     isModelLoading = false
                     onModelReady?.invoke()
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to load Vosk model: ${e.message}")
+            } catch (e: Throwable) {
+                Log.e(TAG, "Failed to load Vosk model: ${e.javaClass.simpleName}: ${e.message}", e)
                 withContext(Dispatchers.Main) { isModelLoading = false }
             }
         }

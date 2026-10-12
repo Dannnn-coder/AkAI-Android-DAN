@@ -34,3 +34,8 @@ keystore.properties
 .idea/
 *.iml
 app/src/main/assets/_backup_*/
+
+# Personal backups (not part of the build)
+_akai_asset_backup_*/
+*_prescale_backup.kt.txt
+*_backup.kt.txt
