@@ -120,51 +120,51 @@
              are pinned to the LOWER part of the blue area, right above the
              conversation box. They are an overlay, so they never move or push
              the conversation container. -->
-        <FrameLayout
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/voiceOverlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:background="@color/akai_blue"
             android:visibility="gone">
 
-            <!-- Group sits clearly above the conversation overlay (fade 10dp +
-                 scroll 230dp = 240dp, plus a raised gap) so the button hovers
-                 around the Reset button's height, NOT flush against the box.
-                 Waveform gets a tall fixed band (overflowing peaks are drawn
-                 centered so they expand both above AND below the center). -->
-            <LinearLayout
-                android:id="@+id/voiceControlsGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="bottom"
-                android:layout_marginBottom="250dp"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
+            <!-- ConstraintLayout so the waveform can SHRINK on short screens:
+                 the button stays anchored at the same height (250dp above the
+                 bottom, level with the Reset button) and always visible, while
+                 only the waveform gives up height. It keeps its 168dp design
+                 band on tall screens and compresses down to 0 on short ones. -->
+            <TextView
+                android:id="@+id/btnTapToSpeak"
+                android:layout_width="wrap_content"
+                android:layout_height="56dp"
+                android:minWidth="200dp"
+                android:gravity="center"
+                android:text="Tap to speak"
+                android:textColor="#5796DB"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_btn_white_3d"
+                android:paddingStart="28dp"
+                android:paddingEnd="28dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginBottom="250dp" />
 
-                <com.akai.ui.VoiceWaveformView
-                    android:id="@+id/voiceWaveform"
-                    android:layout_width="220dp"
-                    android:layout_height="168dp" />
-
-                <TextView
-                    android:id="@+id/btnTapToSpeak"
-                    android:layout_width="wrap_content"
-                    android:layout_height="56dp"
-                    android:minWidth="200dp"
-                    android:gravity="center"
-                    android:text="Tap to speak"
-                    android:textColor="#5796DB"
-                    android:textSize="17sp"
-                    android:textStyle="bold"
-                    android:background="@drawable/bg_btn_white_3d"
-                    android:layout_marginTop="16dp"
-                    android:paddingStart="28dp"
-                    android:paddingEnd="28dp"
-                    android:clickable="true"
-                    android:focusable="true" />
-
-            </LinearLayout>
-        </FrameLayout>
+            <com.akai.ui.VoiceWaveformView
+                android:id="@+id/voiceWaveform"
+                android:layout_width="220dp"
+                android:layout_height="0dp"
+                android:layout_marginBottom="16dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toTopOf="@id/btnTapToSpeak"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHeight_min="0dp"
+                app:layout_constraintHeight_max="168dp"
+                app:layout_constraintVertical_bias="1" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- Conversation area (bottom overlay, user-resizable):
              1) Reset button — floats OUTSIDE the conversation box, upper-left.
