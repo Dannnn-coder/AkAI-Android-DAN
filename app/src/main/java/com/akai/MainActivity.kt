@@ -158,8 +158,14 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         // switch runs — user never sees the underlying UI change mid-animation.
         private const val MODE_SWITCH_COVER_PAUSE_MS = 250L
         // Absolute cap before the in-container language-loading state gives up
-        // and restores the buttons (Filipino model copy can be slow on first run).
-        private const val LANGUAGE_LOAD_TIMEOUT_MS = 12000L
+        // and restores the buttons. The two models are VERY different sizes, so they
+        // get different caps: English is ~68MB (loads in a couple seconds), but Filipino
+        // is ~776MB and on slower phones its first-run copy + Vosk load can take much
+        // longer than 12s. Using one small timeout for both made Filipino "fail" on
+        // slower devices while the load was actually still running (it then succeeded on
+        // a later tap). We give Filipino a generous cap so it loads reliably on one try.
+        private const val LANGUAGE_LOAD_TIMEOUT_MS = 12000L          // English (small model)
+        private const val LANGUAGE_LOAD_TIMEOUT_TL_MS = 90000L       // Filipino (~776MB model)
         // Absolute cap before the transition gives up and restores the previous mode.
         private const val MODE_READY_TIMEOUT_MS = 8000L
         // Conversation box resize: fixed vertical chrome that never resizes — reset
@@ -945,6 +951,9 @@ private fun enterFingerspellMode() {
     /** Polls until the requested model is genuinely loaded; surfaces failures and
      *  an absolute timeout so the loading state can never stick forever. */
     private fun pollLanguageReady(target: VoskSTTService.Language, onDone: (Boolean) -> Unit) {
+        // Big Filipino model needs a much larger cap than the small English one.
+        val timeout = if (target == VoskSTTService.Language.FILIPINO)
+            LANGUAGE_LOAD_TIMEOUT_TL_MS else LANGUAGE_LOAD_TIMEOUT_MS
         val started = System.currentTimeMillis()
         val poll = object : Runnable {
             override fun run() {
@@ -958,7 +967,7 @@ private fun enterFingerspellMode() {
                     onDone(false)
                     return
                 }
-                if (System.currentTimeMillis() - started >= LANGUAGE_LOAD_TIMEOUT_MS) {
+                if (System.currentTimeMillis() - started >= timeout) {
                     onDone(false)
                     return
                 }
@@ -1297,7 +1306,10 @@ private fun enterFingerspellMode() {
                         cameraReleased && !viewModel.voskService.isModelLoading
                     },
                     onReady = { completeModeTransition(overlay, success = true, restoreToCamera = wasCamera) },
-                    onTimeout = { completeModeTransition(overlay, success = false, restoreToCamera = wasCamera) }
+                    onTimeout = { completeModeTransition(overlay, success = false, restoreToCamera = wasCamera) },
+                    // Entering Voice may be waiting on the ~776MB Filipino model to finish
+                    // loading; the default 8s cap is far too short for that on slower phones.
+                    timeoutMs = LANGUAGE_LOAD_TIMEOUT_TL_MS
                 )
             }
             ModeTarget.CAMERA -> {
