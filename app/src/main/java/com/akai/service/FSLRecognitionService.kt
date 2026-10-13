@@ -31,6 +31,9 @@ class FSLRecognitionService(private val context: Context) {
     private val SEQ_LENGTH_FILE   = "sequence_length.txt"
     private val FEATURE_DIM       = 156   // 138 landmark/pose + 18 finger-geometry (9 per hand)
     private val CONFIDENCE_THRESHOLD = 0.35f
+    // Below this confidence the top prediction is treated as noise, not a genuine
+    // sign attempt — the "try again" cue must not nag the user when nothing is there.
+    private val LOW_CONFIDENCE_FLOOR = 0.15f
     private val STABLE_REQUIRED   = 2
     private val PREDICT_EVERY_N   = 3
     private val MIN_FRAMES_PCT    = 0.15f
@@ -52,6 +55,9 @@ class FSLRecognitionService(private val context: Context) {
     private val COOLDOWN_MS    = 800L
     private var noHandCount    = 0
     private val NO_HAND_TOLERANCE = 5  // Allow 5 frames of no hand before clearing
+    // Uncertain-sign cue state — prompt the user to retry once per attempt instead of
+    // silently dropping a low-confidence sign (deaf users abandoned tasks on errors).
+    private var lowConfidencePrompted = false
 
     // MediaPipe — Hand + Pose (matches Python Holistic)
     private var handLandmarker: HandLandmarker? = null
@@ -62,9 +68,10 @@ class FSLRecognitionService(private val context: Context) {
     private var handFrameCounter = 0
 
     // Callbacks
-    var onGestureRecognized: ((String) -> Unit)? = null  // word signs → direct to thread
-    var onLetterDetected: ((String) -> Unit)? = null     // letters → go to buffer
+    var onGestureRecognized: ((Pair<String, Float>) -> Unit)? = null  // word signs → direct to thread (label, confidence)
+    var onLetterDetected: ((Pair<String, Float>) -> Unit)? = null     // letters → go to buffer (label, confidence)
     var onTop3Ready: ((List<Pair<String, Float>>) -> Unit)? = null  // top 3 predictions
+    var onLowConfidence: ((String) -> Unit)? = null  // uncertain sign → "not sure, try again" cue
 
     fun loadModel() {
         try {
@@ -219,22 +226,39 @@ class FSLRecognitionService(private val context: Context) {
         val stable = predHistory.count { it == voted }
         val now    = System.currentTimeMillis()
 
+        // Uncertain-sign cue: the model has found a stable candidate but it is below
+        // the auto-commit confidence threshold. Prompt the user to "try again" ONCE per
+        // attempt (word signs only) instead of silently dropping the sign. The flag
+        // resets when a confident sign lands or the buffer clears.
+        if (recognitionMode == RecognitionMode.WORDS
+            && stable >= STABLE_REQUIRED
+            && confidence > LOW_CONFIDENCE_FLOOR
+            && confidence < CONFIDENCE_THRESHOLD
+            && voted != lastOutput
+            && !lowConfidencePrompted) {
+            lowConfidencePrompted = true
+            val cue = voted.replace("_", " ")
+            Log.d(TAG, "LOW CONFIDENCE: $voted ($confidence) — prompting retry")
+            onLowConfidence?.invoke(cue)
+        }
+
         if (confidence >= CONFIDENCE_THRESHOLD
             && stable >= STABLE_REQUIRED
             && voted != lastOutput
             && (now - lastOutputTime) > COOLDOWN_MS) {
             lastOutput     = voted
             lastOutputTime = now
+            lowConfidencePrompted = false
             Log.d(TAG, "DETECTED: $voted (conf=$confidence)")
 
             if (recognitionMode == RecognitionMode.LETTERS && voted.startsWith("letter_")) {
                 // Letter → send to word assembly buffer
                 val letter = voted.removePrefix("letter_").uppercase()
-                onLetterDetected?.invoke(letter)
+                onLetterDetected?.invoke(letter to confidence)
             } else if (recognitionMode == RecognitionMode.WORDS && !voted.startsWith("letter_")) {
                 // Word sign → send directly to conversation thread
                 val displayText = voted.replace("_", " ")
-                onGestureRecognized?.invoke(displayText)
+                onGestureRecognized?.invoke(displayText to confidence)
             }
         }
     }
@@ -380,6 +404,7 @@ class FSLRecognitionService(private val context: Context) {
         cachedPoseResult = null
         cachedHandResult = null
         lastOutput    = ""
+        lowConfidencePrompted = false
     }
 
     private fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {

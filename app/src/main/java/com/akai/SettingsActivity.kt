@@ -57,8 +57,10 @@ class SettingsActivity : AppCompatActivity() {
         private val KEY_HEARING_BUBBLE_COLOR = AppPreferences.KEY_HEARING_BUBBLE_COLOR
         private val KEY_TTS_VOICE_PERSONA    = AppPreferences.KEY_TTS_VOICE_PERSONA
         private val KEY_THEME_MODE          = AppPreferences.KEY_THEME_MODE
+        private val KEY_CONVERSATION_TEXT_SIZE = AppPreferences.KEY_CONVERSATION_TEXT_SIZE
         private val DEFAULT_DEAF_BUBBLE_COLOR    = AppPreferences.DEFAULT_DEAF_BUBBLE_COLOR
         private val DEFAULT_HEARING_BUBBLE_COLOR = AppPreferences.DEFAULT_HEARING_BUBBLE_COLOR
+        private val DEFAULT_CONVERSATION_TEXT_SIZE = AppPreferences.DEFAULT_CONVERSATION_TEXT_SIZE
 
         // Instance-state keys: carry the exact Settings destination through the
         // Activity recreation that AppCompat performs when the theme switches.
@@ -75,6 +77,13 @@ class SettingsActivity : AppCompatActivity() {
             Color.parseColor("#FFD1A3"),
             Color.parseColor("#D6D6D6"),
             Color.WHITE
+        )
+
+        // Conversation text size options (sp): Normal is the default bubble size.
+        private val TEXT_SIZE_OPTIONS = listOf(
+            "Normal" to 15,
+            "Large" to 18,
+            "Extra Large" to 22
         )
     }
 
@@ -414,6 +423,35 @@ class SettingsActivity : AppCompatActivity() {
         content.addView(colorOptionsRow(KEY_DEAF_BUBBLE_COLOR, DEFAULT_DEAF_BUBBLE_COLOR))
         content.addView(sectionTitle("Hearing Bubble"))
         content.addView(colorOptionsRow(KEY_HEARING_BUBBLE_COLOR, DEFAULT_HEARING_BUBBLE_COLOR))
+
+        // Conversation text size — a hearing users' request (larger, readable bubbles).
+        content.addView(sectionTitle("Conversation Text"))
+        content.addView(conversationTextSizeRow())
+        content.addView(hintText("Choose how large the text in the conversation bubbles is."))
+    }
+
+    /** Segmented Normal / Large / Extra Large picker for conversation bubble text. */
+    private fun conversationTextSizeRow(): LinearLayout {
+        val current = prefs().getInt(KEY_CONVERSATION_TEXT_SIZE, DEFAULT_CONVERSATION_TEXT_SIZE)
+
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+            background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_mode_container)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(58)
+            ).apply { bottomMargin = dp(4) }
+        }
+
+        TEXT_SIZE_OPTIONS.forEach { (label, sizeSp) ->
+            container.addView(modeSegment(label, selected = current == sizeSp) {
+                prefs().edit().putInt(KEY_CONVERSATION_TEXT_SIZE, sizeSp).apply()
+                renderPersonalizationPage()
+            })
+        }
+        return container
     }
 
     /**
@@ -635,6 +673,7 @@ class SettingsActivity : AppCompatActivity() {
             ?: prefs().getInt(KEY_DEAF_BUBBLE_COLOR, DEFAULT_DEAF_BUBBLE_COLOR)
         val hearingColor = colorProvider?.invoke(KEY_HEARING_BUBBLE_COLOR)
             ?: prefs().getInt(KEY_HEARING_BUBBLE_COLOR, DEFAULT_HEARING_BUBBLE_COLOR)
+        val textSize = prefs().getInt(KEY_CONVERSATION_TEXT_SIZE, DEFAULT_CONVERSATION_TEXT_SIZE).toFloat()
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -652,12 +691,12 @@ class SettingsActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = dp(8)
             }
-            addView(previewBubble("Hello", deafColor, true))
-            addView(previewBubble("Nice to meet you", hearingColor, false))
+            addView(previewBubble("Hello", deafColor, true, textSize))
+            addView(previewBubble("Nice to meet you", hearingColor, false, textSize))
         }
     }
 
-    private fun previewBubble(text: String, color: Int, deaf: Boolean): LinearLayout {
+    private fun previewBubble(text: String, color: Int, deaf: Boolean, textSize: Float): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = if (deaf) android.view.Gravity.START else android.view.Gravity.END
@@ -670,7 +709,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         row.addView(TextView(this).apply {
             this.text = text
-            textSize = 15f
+            this.textSize = textSize
             typeface = font(bold = false)
             setTextColor(readableTextColor(color))
             setPadding(dp(12), dp(9), dp(12), dp(9))

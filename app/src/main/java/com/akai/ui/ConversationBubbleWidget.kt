@@ -12,6 +12,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.akai.R
+import com.akai.data.AppPreferences
 import com.akai.data.ConversationEntry
 import com.akai.data.SenderType
 
@@ -58,6 +59,13 @@ class ConversationBubbleWidget(context: Context) : LinearLayout(context) {
         if (speakButton.visibility == VISIBLE) speakButton else null
 
     fun render(entry: ConversationEntry, side: BubbleSide, onDeafMessageSpeak: ((String) -> Unit)?, deafBubbleColor: Int?, hearingBubbleColor: Int?) {
+        // Larger conversation text option (Settings → Personalization): applies to
+        // every bubble, re-rendered when returning from Settings (onResume rebuilds).
+        val textSizeSp = context.getSharedPreferences(AppPreferences.PREFS_NAME, Context.MODE_PRIVATE)
+            .getInt(AppPreferences.KEY_CONVERSATION_TEXT_SIZE, AppPreferences.DEFAULT_CONVERSATION_TEXT_SIZE)
+        messageView.textSize = textSizeSp.toFloat()
+        timestampView.textSize = (textSizeSp * 0.7f).coerceAtLeast(10f)
+
         messageView.text = entry.text
         timestampView.text = entry.timestamp
         onSpeak = onDeafMessageSpeak

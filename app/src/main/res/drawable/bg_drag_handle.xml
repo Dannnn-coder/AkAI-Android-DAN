@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Small rounded grab-bar shown at the top of the conversation box. Neutral grey so
+     it stays visible against BOTH the light panel (#CCFFFFFF) and the dark night
+     panel (#E61E1E1E), since the handle now sits INSIDE the box. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#B06B6B6B" />
+    <corners android:radius="3dp" />
+</shape>
