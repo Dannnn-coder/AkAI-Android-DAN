@@ -5,12 +5,17 @@ import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import org.vosk.Model
 import org.vosk.Recognizer
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.sqrt
 
 /**
@@ -29,14 +34,30 @@ class VoskSTTService(private val context: Context) {
     // Vosk is still fed the exact same continuous PCM stream, just in pieces.
     private val AMPLITUDE_CHUNK = 640
 
-    private var voskModel: Model? = null
-    private var recognizer: Recognizer? = null
+    /** One resident model + recognizer for a language, kept alongside the others. */
+    private class LoadedModel(val model: Model, val recognizer: Recognizer)
+
+    // Models are cached PER LANGUAGE and kept resident side by side. English is the
+    // default voice language; the heavy ~776MB Filipino model is preloaded into RAM
+    // at startup so switching to it is instant. Holding both costs ~850MB native,
+    // which is why loads are serialized below — never two large copies at once.
+    private val loadedModels = ConcurrentHashMap<Language, LoadedModel>()
     private var audioRecord: AudioRecord? = null
     private var isRecording = false
     private var currentLanguage = Language.ENGLISH
-    private var loadedLanguage: Language? = null  // tracks what's actually in memory
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // Serializes model loads so two languages never copy/parse concurrently.
+    private val loadMutex = Mutex()
+    // Languages whose load is queued or running (dedupes repeat requests).
+    private val loadingLanguages = ConcurrentHashMap.newKeySet<Language>()
+    // Languages that still owe an onModelReady callback once their load finishes,
+    // so a silent preload can be "upgraded" by a real load request for the same one.
+    private val pendingReadyNotify = ConcurrentHashMap.newKeySet<Language>()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    // Set once the service is torn down; lets an in-flight native load that cannot be
+    // cancelled avoid registering itself into the (already-cleared) model map.
+    @Volatile private var closed = false
 
     var onTranscriptionResult: ((String) -> Unit)? = null
     var onRecordingStateChanged: ((RecordingState) -> Unit)? = null
@@ -52,48 +73,73 @@ class VoskSTTService(private val context: Context) {
     var isModelLoading = false
         private set
 
+    /** Loads the CURRENT language model if it isn't already resident. */
     fun loadModel() {
-        if (isModelLoading) return  // Prevent concurrent loads
-        // Only skip reload if the CORRECT language is already in memory
-        if (voskModel != null && recognizer != null && loadedLanguage == currentLanguage) {
+        if (loadedModels.containsKey(currentLanguage)) {
             onModelReady?.invoke()
             return
         }
-        isModelLoading = true  // Lock toggle until load completes
+        requestLoad(currentLanguage, notifyReady = true)
+    }
+
+    /** Enqueue a background load of [language] (deduped, serialized). [notifyReady]
+     *  means [onModelReady] should fire once this language is usable. */
+    private fun requestLoad(language: Language, notifyReady: Boolean) {
+        // Already in memory — nothing to do but report readiness if asked.
+        if (loadedModels.containsKey(language)) {
+            if (notifyReady) invokeOnMain { onModelReady?.invoke() }
+            return
+        }
+        if (notifyReady) pendingReadyNotify.add(language)
+        // A load for this language is already queued/running — let it finish.
+        if (!loadingLanguages.add(language)) return
+        setModelLoading()
         scope.launch {
-            try {
-                loadLanguageModel(currentLanguage)
-                Log.d(TAG, "Vosk model loaded: $currentLanguage")
-                withContext(Dispatchers.Main) {
-                    isModelLoading = false
-                    onModelReady?.invoke()
+            loadMutex.withLock {
+                try {
+                    if (!loadedModels.containsKey(language)) {
+                        loadLanguageModel(language)
+                    }
+                    if (pendingReadyNotify.remove(language)) {
+                        invokeOnMain { onModelReady?.invoke() }
+                    }
+                } catch (e: Throwable) {
+                    Log.e(TAG, "Failed to load Vosk model $language: ${e.javaClass.simpleName}: ${e.message}", e)
+                    pendingReadyNotify.remove(language)
+                } finally {
+                    loadingLanguages.remove(language)
+                    setModelLoading()
                 }
-            } catch (e: Throwable) {
-                Log.e(TAG, "Failed to load Vosk model: ${e.javaClass.simpleName}: ${e.message}", e)
-                withContext(Dispatchers.Main) { isModelLoading = false }
             }
         }
     }
 
-    private fun loadLanguageModel(language: Language) {
-        // Null out before closing — prevents stale non-null references
-        val oldRecognizer = recognizer
-        val oldModel      = voskModel
-        recognizer    = null
-        voskModel     = null
-        loadedLanguage = null  // clear until new model fully loads
-        oldRecognizer?.close()
-        oldModel?.close()
+    /** Publishes [isModelLoading] = "any load queued/running" onto the main thread. */
+    private fun setModelLoading() {
+        invokeOnMain { isModelLoading = loadingLanguages.isNotEmpty() }
+    }
 
+    private fun invokeOnMain(block: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) block() else mainHandler.post(block)
+    }
+
+    /** Loads [language] into memory and caches it WITHOUT touching any other language. */
+    private fun loadLanguageModel(language: Language) {
         val modelFolder = when (language) {
             Language.FILIPINO -> "vosk-model-tl"
             Language.ENGLISH -> "vosk-model-en"
         }
-
-        val modelPath  = copyModelToCache(modelFolder)
-        voskModel      = Model(modelPath)
-        recognizer     = Recognizer(voskModel, SAMPLE_RATE.toFloat())
-        loadedLanguage = language  // only mark loaded AFTER success
+        val modelPath = copyModelToCache(modelFolder)
+        val model = Model(modelPath)
+        val recognizer = Recognizer(model, SAMPLE_RATE.toFloat())
+        // The service may have been closed while this native load was running
+        // (it cannot be cancelled); release instead of caching a stale model.
+        if (closed) {
+            recognizer.close()
+            model.close()
+            return
+        }
+        loadedModels[language] = LoadedModel(model, recognizer)
         Log.d(TAG, "Loaded model: $modelFolder")
     }
 
@@ -157,17 +203,17 @@ class VoskSTTService(private val context: Context) {
     }
 
     /**
-     * Preloads a specific language model silently in the background.
-     * Called during splash screen — no UI callbacks triggered.
-     * Safe to call from a coroutine on Dispatchers.IO.
+     * Preloads [language] into memory in the background WITHOUT changing the current
+     * language and without firing [onModelReady]. Called at main-screen startup to warm
+     * the heavy Filipino model so a later switch to it is instant. Safe to call
+     * repeatedly — an already-loaded (or in-flight) language is left alone.
+     *
+     * Runs once MainActivity's ViewModel exists: the splash and main screens each own
+     * a separate ViewModel, so loading during splash would be discarded on transition.
      */
     fun preloadModel(language: Language) {
-        try {
-            loadLanguageModel(language)
-            Log.d(TAG, "Preloaded model: $language")
-        } catch (e: Exception) {
-            Log.e(TAG, "Preload failed for $language: ${e.message}")
-        }
+        if (loadedModels.containsKey(language)) return
+        requestLoad(language, notifyReady = false)
     }
 
     /**
@@ -178,20 +224,21 @@ class VoskSTTService(private val context: Context) {
      */
     fun switchLanguage(language: Language): Boolean {
         if (isRecording || isModelLoading) return false  // busy — don't accept the switch
-        if (language == loadedLanguage && voskModel != null) {
-            // Already on this language and loaded — nothing to do, tell UI it's ready.
-            currentLanguage = language
+        currentLanguage = language
+        if (loadedModels.containsKey(language)) {
+            // Already resident (e.g. preloaded) — instantly usable.
             onModelReady?.invoke()
             return true
         }
-        currentLanguage = language
-        loadModel()
+        requestLoad(language, notifyReady = true)
         return true
     }
 
     @SuppressLint("MissingPermission")
     fun startRecording() {
-        if (isRecording || recognizer == null) return
+        // Snapshot the recognizer for the CURRENT language; bail if it isn't loaded.
+        val activeRecognizer = loadedModels[currentLanguage]?.recognizer ?: return
+        if (isRecording) return
         isRecording = true
         onRecordingStateChanged?.invoke(RecordingState.RECORDING)
 
@@ -208,7 +255,7 @@ class VoskSTTService(private val context: Context) {
                 Log.d(TAG, "Recording started")
 
                 val buffer = ShortArray(AMPLITUDE_CHUNK)
-                recognizer?.reset()
+                activeRecognizer.reset()
                 lastLevel = 0f
                 onLevel?.invoke(0f)
 
@@ -221,13 +268,13 @@ class VoskSTTService(private val context: Context) {
                             sum += s * s
                         }
                         val rms = sqrt(sum / read)
-                        recognizer?.acceptWaveForm(buffer, read)
+                        activeRecognizer.acceptWaveForm(buffer, read)
                         publishLevel((rms / Short.MAX_VALUE).toFloat())
                     }
                 }
 
                 // Get final result
-                val resultJson = recognizer?.finalResult ?: "{}"
+                val resultJson = activeRecognizer.finalResult
                 val text = JSONObject(resultJson).optString("text", "").trim()
                 Log.d(TAG, "Final result: $text")
 
@@ -282,18 +329,23 @@ class VoskSTTService(private val context: Context) {
 
     /** True only when [language] is fully loaded and usable right now. */
     fun isLanguageLoaded(language: Language): Boolean =
-        loadedLanguage == language && voskModel != null && recognizer != null
+        loadedModels.containsKey(language)
 
     fun close() {
+        closed = true
         isRecording = false
         audioRecord?.stop()
         audioRecord?.release()
         audioRecord = null
-        recognizer?.close()
-        recognizer = null
-        voskModel?.close()
-        voskModel = null
-        loadedLanguage = null
+        // Free EVERY resident language (RA 10173-minded: nothing model- or audio-related
+        // is left in memory once the owning screen is gone).
+        loadedModels.values.forEach {
+            it.recognizer.close()
+            it.model.close()
+        }
+        loadedModels.clear()
+        loadingLanguages.clear()
+        pendingReadyNotify.clear()
         scope.cancel()
     }
 }

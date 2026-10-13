@@ -56,7 +56,10 @@ class ConversationViewModel(application: Application) : AndroidViewModel(applica
     val syncError = MutableLiveData<String?>(null)
 
     init {
-        // Load FSL during splash — Vosk loads lazily when user switches to speech mode.
+        // Load FSL during splash. Vosk is NOT loaded here: this ViewModel is also
+        // created by SplashActivity, and the splash instance is discarded on the
+        // transition — so MainActivity starts the speech-model preload instead
+        // (see MainActivity.preloadSpeechModel()), where it actually persists.
         // modelsReady is set in finally{} so it ALWAYS fires even if loadModel() throws,
         // preventing the splash from being stuck forever on a model load failure.
         viewModelScope.launch(Dispatchers.IO) {

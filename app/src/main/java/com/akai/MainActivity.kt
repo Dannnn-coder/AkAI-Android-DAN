@@ -211,6 +211,7 @@ class MainActivity : AppCompatActivity(), TextToSpeech.OnInitListener {
         setupModeButtons()
         setupFSLCallbacks()
         setupVoskCallbacks()
+        preloadSpeechModel()
         observeViewModel()
         observeSessionState()
 
@@ -1053,6 +1054,18 @@ private fun enterFingerspellMode() {
                 }
             }
         }
+    }
+
+    /**
+     * Startup preload: begin loading the (heavy) Filipino speech model into memory
+     * as soon as the main screen exists, in the background. English stays the default
+     * voice language and loads quickly on first use; preloading Filipino means a later
+     * switch to it is instant instead of paying the ~776MB load cost on demand. Both
+     * languages stay resident once loaded. Guarded in the service, so re-entering this
+     * screen never reloads an already-resident model.
+     */
+    private fun preloadSpeechModel() {
+        viewModel.voskService.preloadModel(VoskSTTService.Language.FILIPINO)
     }
 
     /** Speech results land in the Build a sentence draft, like signed words do. */
