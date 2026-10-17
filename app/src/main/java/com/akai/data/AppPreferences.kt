@@ -12,6 +12,7 @@ object AppPreferences {
     const val KEY_THEME_MODE         = "theme_mode"
     const val KEY_SETTINGS_PAGE      = "settings_page"
     const val KEY_CONVERSATION_TEXT_SIZE = "conversation_text_size"
+    const val KEY_SHOW_ACCURACY      = "show_accuracy_percentages"
     const val PAGE_MAIN              = "main"
     const val PAGE_AUDIO             = "audio"
     const val PAGE_PERSONALIZATION   = "personalization"

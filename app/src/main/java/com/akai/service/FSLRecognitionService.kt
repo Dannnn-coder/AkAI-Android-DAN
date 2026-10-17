@@ -206,7 +206,9 @@ class FSLRecognitionService(private val context: Context) {
 
         Log.d(TAG, "Inference: $predicted conf=$confidence")
 
-        // Build top 3 predictions and send to UI
+        // Build top 3 predictions and send to UI (normalize over candidates for accuracy)
+        val candidateProbs = candidateIndices.associateWith { probs[it] }
+        val sumCandidate = candidateProbs.values.sum()
         val top3 = candidateIndices
             .sortedByDescending { probs[it] }
             .take(3)
@@ -215,7 +217,8 @@ class FSLRecognitionService(private val context: Context) {
                     actions[idx].removePrefix("letter_").uppercase()
                 else
                     actions[idx].replace("_", " ")
-                Pair(label, probs[idx])
+                val norm = if (sumCandidate > 1e-6f) probs[idx] / sumCandidate else probs[idx]
+                Pair(label, norm)
             }
         onTop3Ready?.invoke(top3)
 
@@ -251,14 +254,16 @@ class FSLRecognitionService(private val context: Context) {
             lowConfidencePrompted = false
             Log.d(TAG, "DETECTED: $voted (conf=$confidence)")
 
+            val vIdxDetected = actions.indexOf(voted)
+            val vNormDetected = if (sumCandidate > 1e-6f && vIdxDetected >= 0) probs[vIdxDetected] / sumCandidate else confidence
             if (recognitionMode == RecognitionMode.LETTERS && voted.startsWith("letter_")) {
                 // Letter → send to word assembly buffer
                 val letter = voted.removePrefix("letter_").uppercase()
-                onLetterDetected?.invoke(letter to confidence)
+                onLetterDetected?.invoke(Pair(letter, vNormDetected))
             } else if (recognitionMode == RecognitionMode.WORDS && !voted.startsWith("letter_")) {
                 // Word sign → send directly to conversation thread
                 val displayText = voted.replace("_", " ")
-                onGestureRecognized?.invoke(displayText to confidence)
+                onGestureRecognized?.invoke(Pair(displayText, vNormDetected))
             }
         }
     }

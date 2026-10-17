@@ -29,6 +29,7 @@ import androidx.activity.OnBackPressedCallback
 import com.akai.data.AppPreferences
 import com.akai.service.VoicePersona
 import com.akai.service.VoicePersonaCatalog
+import com.akai.ui.AkaiDialog
 import com.akai.ui.AkaiNotification
 import com.akai.ui.ConversationBubbleWidget
 import java.util.Locale
@@ -44,6 +45,12 @@ class SettingsActivity : AppCompatActivity() {
     private var customPagePrefKey: String? = null
     private var customPageColor: Int = 0
 
+    private lateinit var applyBar: LinearLayout
+
+    // Staged (not yet persisted) edits for the Personalization and Theme screen.
+    // Entries live here only until the user taps "Apply changes" or discards them.
+    private val pendingPersonalization = mutableMapOf<String, Any>()
+
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var previewingPersonaName: String? = null
@@ -58,6 +65,7 @@ class SettingsActivity : AppCompatActivity() {
         private val KEY_TTS_VOICE_PERSONA    = AppPreferences.KEY_TTS_VOICE_PERSONA
         private val KEY_THEME_MODE          = AppPreferences.KEY_THEME_MODE
         private val KEY_CONVERSATION_TEXT_SIZE = AppPreferences.KEY_CONVERSATION_TEXT_SIZE
+        private val KEY_SHOW_ACCURACY           = AppPreferences.KEY_SHOW_ACCURACY
         private val DEFAULT_DEAF_BUBBLE_COLOR    = AppPreferences.DEFAULT_DEAF_BUBBLE_COLOR
         private val DEFAULT_HEARING_BUBBLE_COLOR = AppPreferences.DEFAULT_HEARING_BUBBLE_COLOR
         private val DEFAULT_CONVERSATION_TEXT_SIZE = AppPreferences.DEFAULT_CONVERSATION_TEXT_SIZE
@@ -68,6 +76,7 @@ class SettingsActivity : AppCompatActivity() {
         private const val STATE_SCROLL          = "state_settings_scroll"
         private const val STATE_CUSTOM_PREF     = "state_custom_pref"
         private const val STATE_CUSTOM_COLOR    = "state_custom_color"
+        private const val STATE_PENDING         = "state_settings_pending"
 
         private val PASTEL_COLORS = listOf(
             Color.parseColor("#A7C7E7"),
@@ -116,6 +125,14 @@ class SettingsActivity : AppCompatActivity() {
         SystemBarTheme.apply(this)
 
         if (savedInstanceState != null) {
+            // Restore any staged Personalization edits BEFORE the page renders, so a
+            // process/rotation recreation never silently drops unsaved changes.
+            @Suppress("DEPRECATION")
+            (savedInstanceState.getSerializable(STATE_PENDING) as? HashMap<*, *>)?.forEach { (key, value) ->
+                if (key is String && (value is Int || value is Boolean)) {
+                    pendingPersonalization[key] = value
+                }
+            }
             // The theme switch recreates the Activity via AppCompat. Instance state
             // carries the EXACT destination (page, scroll, custom-color context) so
             // the user stays on the same Settings section instead of being kicked
@@ -165,6 +182,9 @@ class SettingsActivity : AppCompatActivity() {
         if (currentPage == Page.CUSTOM_COLOR) {
             customPagePrefKey?.let { outState.putString(STATE_CUSTOM_PREF, it) }
             outState.putInt(STATE_CUSTOM_COLOR, customPageColor)
+        }
+        if (pendingPersonalization.isNotEmpty()) {
+            outState.putSerializable(STATE_PENDING, HashMap(pendingPersonalization))
         }
     }
 
@@ -265,20 +285,121 @@ class SettingsActivity : AppCompatActivity() {
 
         root.addView(header)
         root.addView(scrollScroll)
+
+        // Pinned "Apply changes" bar — visible only on the Personalization page while
+        // staged edits exist. Sits at the bottom of the screen (root already insets it
+        // clear of the navigation bar), so the user never has to scroll to reach it.
+        applyBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            setBackgroundColor(surfaceColor())
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            addView(TextView(this@SettingsActivity).apply {
+                text = "Apply changes"
+                textSize = 15f
+                typeface = font(bold = true)
+                setTextColor(Color.WHITE)
+                gravity = android.view.Gravity.CENTER
+                background = ContextCompat.getDrawable(this@SettingsActivity, R.drawable.bg_btn_blue_3d)
+                setPadding(dp(18), 0, dp(18), dp(3))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { applyPersonalizationChanges() }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(50)
+                )
+            })
+        }
+        root.addView(applyBar)
         setContentView(root)
     }
 
     private fun handleBack() {
         when (currentPage) {
             Page.MAIN -> finish()
-            Page.AUDIO, Page.PERSONALIZATION -> renderMainPage()
+            Page.AUDIO -> renderMainPage()
+            Page.PERSONALIZATION ->
+                if (pendingDirty()) confirmDiscardChanges() else renderMainPage()
             Page.CUSTOM_COLOR -> renderPersonalizationPage()
         }
+    }
+
+    /** True when the Personalization screen holds staged edits not yet persisted. */
+    private fun pendingDirty(): Boolean = pendingPersonalization.isNotEmpty()
+
+    private fun stagePending(key: String, value: Any) {
+        pendingPersonalization[key] = value
+    }
+
+    /** Personalization value for [key], preferring a staged edit over the saved one. */
+    private fun pendingInt(key: String, default: Int): Int =
+        (pendingPersonalization[key] as? Int) ?: prefs().getInt(key, default)
+
+    private fun pendingBool(key: String, default: Boolean): Boolean =
+        (pendingPersonalization[key] as? Boolean) ?: prefs().getBoolean(key, default)
+
+    /** Shows the pinned Apply bar only on the Personalization page with staged edits. */
+    private fun updateApplyBar() {
+        if (::applyBar.isInitialized) {
+            applyBar.visibility =
+                if (currentPage == Page.PERSONALIZATION && pendingDirty()) View.VISIBLE
+                else View.GONE
+        }
+    }
+
+    /** Persists every staged Personalization edit, then re-renders (or switches theme). */
+    private fun applyPersonalizationChanges() {
+        if (!pendingDirty()) return
+        val currentTheme = prefs().getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES)
+        val stagedTheme = pendingPersonalization[KEY_THEME_MODE] as? Int
+
+        val editor = prefs().edit()
+        pendingPersonalization.forEach { (key, value) ->
+            when (value) {
+                is Int -> editor.putInt(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+            }
+        }
+        editor.apply()
+        pendingPersonalization.clear()
+        AkaiNotification.short(this, "Changes applied")
+
+        if (stagedTheme != null && stagedTheme != currentTheme) {
+            // No manual recreate: AppCompat recreates the Activity and onCreate()
+            // restores this page. Pending edits are already cleared above, so the
+            // recreation does not carry any stale draft.
+            AppCompatDelegate.setDefaultNightMode(stagedTheme)
+        } else {
+            renderPersonalizationPage()
+        }
+    }
+
+    /** Confirmation shown when leaving Personalization with staged edits. */
+    private fun confirmDiscardChanges() {
+        AkaiDialog.show(
+            activity = this,
+            title = "Discard unsaved changes?",
+            message = "You have unsaved changes, are you sure you want to discard them?",
+            buttons = listOf(
+                AkaiDialog.Button("Keep editing", white = true) {},
+                AkaiDialog.Button("Discard") {
+                    pendingPersonalization.clear()
+                    renderMainPage()
+                }
+            )
+        )
     }
 
     private fun renderMainPage() {
         trackPage(Page.MAIN)
         currentPage = Page.MAIN
+        updateApplyBar()
         titleView.text = "Settings"
         content.removeAllViews()
         content.addView(settingsRow("Audio") { renderAudioPage() })
@@ -288,6 +409,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderAudioPage() {
         trackPage(Page.AUDIO)
         currentPage = Page.AUDIO
+        updateApplyBar()
         titleView.text = "Audio"
         content.removeAllViews()
 
@@ -410,6 +532,7 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderPersonalizationPage() {
         trackPage(Page.PERSONALIZATION)
         currentPage = Page.PERSONALIZATION
+        updateApplyBar()
         titleView.text = "Personalization and Theme"
         content.removeAllViews()
 
@@ -428,11 +551,48 @@ class SettingsActivity : AppCompatActivity() {
         content.addView(sectionTitle("Conversation Text"))
         content.addView(conversationTextSizeRow())
         content.addView(hintText("Choose how large the text in the conversation bubbles is."))
+
+        content.addView(sectionTitle("FSL Recognition"))
+        content.addView(showAccuracyRow())
+        content.addView(hintText("Toggle on to show confidence percentages for predictions."))
     }
 
     /** Segmented Normal / Large / Extra Large picker for conversation bubble text. */
+    private fun showAccuracyRow(): LinearLayout {
+        val show = pendingBool(KEY_SHOW_ACCURACY, false)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            background = roundedRect(rowBgColor(), 6f)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(54)
+            ).apply { bottomMargin = dp(10) }
+            addView(TextView(this@SettingsActivity).apply {
+                text = "Show accuracy percentages"
+                textSize = 16f
+                typeface = font(bold = false)
+                setTextColor(textColorPrimary())
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(16), 0, 0, 0)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            })
+            addView(androidx.appcompat.widget.SwitchCompat(this@SettingsActivity).apply {
+                isChecked = show
+                text = null
+                setThumbTintList(android.content.res.ColorStateList.valueOf(akaiBlue()))
+                setTrackTintList(android.content.res.ColorStateList.valueOf(akaiBlue().let { Color.argb(100, Color.red(it), Color.green(it), Color.blue(it)) }))
+                setOnCheckedChangeListener { _, checked ->
+                    stagePending(KEY_SHOW_ACCURACY, checked)
+                    updateApplyBar()
+                }
+                layoutParams = LinearLayout.LayoutParams(dp(52), dp(42)).apply { marginEnd = dp(6) }
+            })
+        }
+    }
+
     private fun conversationTextSizeRow(): LinearLayout {
-        val current = prefs().getInt(KEY_CONVERSATION_TEXT_SIZE, DEFAULT_CONVERSATION_TEXT_SIZE)
+        val current = pendingInt(KEY_CONVERSATION_TEXT_SIZE, DEFAULT_CONVERSATION_TEXT_SIZE)
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -447,7 +607,7 @@ class SettingsActivity : AppCompatActivity() {
 
         TEXT_SIZE_OPTIONS.forEach { (label, sizeSp) ->
             container.addView(modeSegment(label, selected = current == sizeSp) {
-                prefs().edit().putInt(KEY_CONVERSATION_TEXT_SIZE, sizeSp).apply()
+                stagePending(KEY_CONVERSATION_TEXT_SIZE, sizeSp)
                 renderPersonalizationPage()
             })
         }
@@ -457,11 +617,11 @@ class SettingsActivity : AppCompatActivity() {
     /**
      * Fixed-size segmented Light/Dark switch that mirrors the Home screen's Camera /
      * Voice switcher visuals: flat themed pill + blue outline, selected segment raised
-     * 3D blue, unselected flat with blue label. No loading, no manual recreate — the
-     * theme applies instantly via AppCompat (the Activity recreates on its own).
+     * 3D blue, unselected flat with blue label. The choice is staged like the rest of
+     * this page and only takes effect when the user taps "Apply changes".
      */
     private fun themeSelectionRow(): LinearLayout {
-        val isDark = prefs().getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES) == AppCompatDelegate.MODE_NIGHT_YES
+        val isDark = pendingInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES) == AppCompatDelegate.MODE_NIGHT_YES
 
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -502,16 +662,17 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun selectTheme(dark: Boolean) {
         val newMode = if (dark) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO
-        if (prefs().getInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES) == newMode) return
-        prefs().edit().putInt(KEY_THEME_MODE, newMode).apply()
-        // No manual recreate() and no loading: AppCompat recreates the Activity
-        // automatically and onCreate() restores the page the user was on.
-        AppCompatDelegate.setDefaultNightMode(newMode)
+        if (pendingInt(KEY_THEME_MODE, AppCompatDelegate.MODE_NIGHT_YES) == newMode) return
+        stagePending(KEY_THEME_MODE, newMode)
+        // Staged only — the actual switch (setDefaultNightMode, which recreates the
+        // Activity) happens in applyPersonalizationChanges() so it can be discarded.
+        renderPersonalizationPage()
     }
 
     private fun renderCustomColorPage(prefKey: String, title: String, initialColor: Int) {
         trackPage(Page.CUSTOM_COLOR)
         currentPage = Page.CUSTOM_COLOR
+        updateApplyBar()
         titleView.text = title
         content.removeAllViews()
 
@@ -526,7 +687,7 @@ class SettingsActivity : AppCompatActivity() {
         fun updateCustomPreview() {
             previewContainer.removeAllViews()
             previewContainer.addView(previewBlock { pref ->
-                if (pref == prefKey) customPageColor else prefs().getInt(pref, defaultFor(pref))
+                if (pref == prefKey) customPageColor else pendingInt(pref, defaultFor(pref))
             })
         }
         updateCustomPreview()
@@ -557,7 +718,7 @@ class SettingsActivity : AppCompatActivity() {
             })
         }
         val save = settingsRow("Save Color") {
-            prefs().edit().putInt(prefKey, customPageColor).apply()
+            stagePending(prefKey, customPageColor)
             AkaiNotification.short(this@SettingsActivity, "Color saved")
             renderPersonalizationPage()
         }
@@ -610,13 +771,13 @@ class SettingsActivity : AppCompatActivity() {
             setPadding(0, 0, 0, dp(4))
         }
         PASTEL_COLORS.forEach { color ->
-            row.addView(colorCircle(color, prefs().getInt(prefKey, defaultColor) == color) {
-                prefs().edit().putInt(prefKey, color).apply()
+            row.addView(colorCircle(color, pendingInt(prefKey, defaultColor) == color) {
+                stagePending(prefKey, color)
                 renderPersonalizationPage()
             })
         }
         row.addView(customCircle {
-            renderCustomColorPage(prefKey, if (prefKey == KEY_DEAF_BUBBLE_COLOR) "Custom Deaf Color" else "Custom Hearing Color", prefs().getInt(prefKey, defaultColor))
+            renderCustomColorPage(prefKey, if (prefKey == KEY_DEAF_BUBBLE_COLOR) "Custom Deaf Color" else "Custom Hearing Color", pendingInt(prefKey, defaultColor))
         })
 
         return HorizontalScrollView(this).apply {
@@ -670,10 +831,10 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun previewBlock(colorProvider: ((String) -> Int)? = null): LinearLayout {
         val deafColor = colorProvider?.invoke(KEY_DEAF_BUBBLE_COLOR)
-            ?: prefs().getInt(KEY_DEAF_BUBBLE_COLOR, DEFAULT_DEAF_BUBBLE_COLOR)
+            ?: pendingInt(KEY_DEAF_BUBBLE_COLOR, DEFAULT_DEAF_BUBBLE_COLOR)
         val hearingColor = colorProvider?.invoke(KEY_HEARING_BUBBLE_COLOR)
-            ?: prefs().getInt(KEY_HEARING_BUBBLE_COLOR, DEFAULT_HEARING_BUBBLE_COLOR)
-        val textSize = prefs().getInt(KEY_CONVERSATION_TEXT_SIZE, DEFAULT_CONVERSATION_TEXT_SIZE).toFloat()
+            ?: pendingInt(KEY_HEARING_BUBBLE_COLOR, DEFAULT_HEARING_BUBBLE_COLOR)
+        val textSize = pendingInt(KEY_CONVERSATION_TEXT_SIZE, DEFAULT_CONVERSATION_TEXT_SIZE).toFloat()
 
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL

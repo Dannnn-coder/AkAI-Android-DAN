@@ -1003,14 +1003,19 @@ private fun enterFingerspellMode() {
         viewModel.fslService.onGestureRecognized = { (gesture, confidence) ->
             runOnUiThread {
                 hideRetryPrompt()
-                // Confidence indicator: the recognized sign plus its certainty.
-                tvPrediction.text = "${gesture.uppercase()} · ${(confidence * 100).toInt()}%"
+                val pct = formatPercent(confidence)
+                val show = getSharedPreferences(AppPreferences.PREFS_NAME, MODE_PRIVATE)
+                    .getBoolean(AppPreferences.KEY_SHOW_ACCURACY, false)
+                tvPrediction.text = if (show) "${gesture.uppercase()} · ${pct}%" else gesture.uppercase()
             }
         }
         viewModel.fslService.onLetterDetected = { (letter, confidence) ->
             runOnUiThread {
                 hideRetryPrompt()
-                tvPrediction.text = "$letter · ${(confidence * 100).toInt()}%"
+                val pct = formatPercent(confidence)
+                val show = getSharedPreferences(AppPreferences.PREFS_NAME, MODE_PRIVATE)
+                    .getBoolean(AppPreferences.KEY_SHOW_ACCURACY, false)
+                tvPrediction.text = if (show) "$letter · ${pct}%" else letter
             }
         }
         viewModel.fslService.onTop3Ready = { top3 ->
@@ -1559,12 +1564,12 @@ private fun enterFingerspellMode() {
         buttons.forEachIndexed { i, button ->
             button.visibility = if (i < top3.size) View.VISIBLE else View.GONE
         }
+        val showAcc = getSharedPreferences(AppPreferences.PREFS_NAME, MODE_PRIVATE)
+            .getBoolean(AppPreferences.KEY_SHOW_ACCURACY, false)
         top3.forEachIndexed { i, (label, conf) ->
             views[i].first.text = label.uppercase()
-            // Confidence indicator: reveal the pre-existing certainty label
-            // (it was computed but never shown).
-            views[i].second.text = "${(conf * 100).toInt()}%"
-            views[i].second.visibility = View.VISIBLE
+            views[i].second.text = "${formatPercent(conf)}%"
+            views[i].second.visibility = if (showAcc) View.VISIBLE else View.GONE
             buttons[i].setBackgroundResource(R.drawable.bg_suggestion_white_3d)
         }
         top3Panel.visibility = View.VISIBLE
@@ -1637,6 +1642,13 @@ private fun enterFingerspellMode() {
                 pendingSyncAction = null
             }
         }
+    }
+
+    private fun formatPercent(conf: Float): Int {
+        var pct = (conf * 100f).toInt()
+        if (pct == 0 && conf > 0f) pct = 1
+        if (pct > 100) pct = 100
+        return pct
     }
 
     override fun onDestroy() {
