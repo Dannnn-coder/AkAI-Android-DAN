@@ -33,7 +33,7 @@ object AkaiDialog {
      * (the same look the step-by-step tutorial uses for its Skip control). All
      * other buttons use the reusable brand-blue 3D pill.
      */
-    data class Button(val label: String, val textOnly: Boolean = false, val onClick: () -> Unit = {})
+    data class Button(val label: String, val textOnly: Boolean = false, val white: Boolean = false, val onClick: () -> Unit = {})
 
     private var activeHost: ViewGroup? = null
     private var activeRoot: View? = null
@@ -168,6 +168,38 @@ object AkaiDialog {
                 setTextColor(Color.parseColor("#8FA6BE"))
                 typeface = poppins(activity, bold = true)
                 setPadding(dp(6, density), 0, dp(6, density), 0)
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    dismissNow()
+                    button.onClick()
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    dp(48, density)
+                ).apply {
+                    leftMargin = dp(6, density)
+                    rightMargin = dp(6, density)
+                }
+            }
+        }
+
+        // White 3D pill with brand-blue text — same look as the permission
+        // screen's "Done!" button. Same footprint as the blue pill.
+        if (button.white) {
+            return TextView(activity).apply {
+                text = button.label
+                textSize = 14f
+                gravity = Gravity.CENTER
+                setTextColor(Color.parseColor("#5796DB"))
+                typeface = poppins(activity, bold = true)
+                background = activity.getDrawable(R.drawable.bg_btn_white_3d)
+                setPadding(
+                    dp(22, density), 0,
+                    dp(22, density), dp(3, density)
+                )
+                minimumWidth = dp(120, density)
+                minimumHeight = dp(48, density)
                 isClickable = true
                 isFocusable = true
                 setOnClickListener {
