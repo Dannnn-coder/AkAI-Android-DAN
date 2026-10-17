@@ -3,6 +3,15 @@
 **AkAI** is an offline Android app that lets a Deaf or Hard-of-Hearing user and a hearing user hold a two-way conversation on one shared device. The Deaf user signs Filipino Sign Language (FSL) to the camera; the hearing user speaks into the microphone; both read the result in a shared conversation thread. Everything runs **on-device** — no internet required.
 
 **Team:** 0xACE · 2526-sem2-IT411-10 · CIT-U BSIT 4th Year
+**Current version:** 1.8.3 (versionCode 15)
+
+---
+
+## Try It / Deployment
+
+- **Download / install:** the signed release APK is attached to the latest [GitHub Release](https://github.com/Desiigner101/AkAI-Android/releases) (`AkAI-1.8.3.apk`). Also distributed via **Google Play closed testing**.
+- **No account needed** — AkAI is fully offline. Just install the APK and open the app; grant camera + microphone permissions when prompted. There is no login, no sign-up, and no server.
+- **Requirements to run:** a physical **ARM64 Android device**, Android 8.0 (API 26) or newer. (MediaPipe does not run on x86_64 emulators.)
 
 ---
 
@@ -65,8 +74,8 @@ app/src/main/
 ├── res/                             ← layouts, drawables, themes
 └── assets/                          ← model files (git-ignored — see Setup)
     ├── akai_model.tflite            ← trained FSL LSTM model
-    ├── actions.txt                  ← 50 class labels (one per line)
-    ├── sequence_length.txt          ← model sequence length (106)
+    ├── actions.txt                  ← 64 class labels (one per line)
+    ├── sequence_length.txt          ← model sequence length (120)
     ├── hand_landmarker.task         ← MediaPipe hand detection model
     └── pose_landmarker.task         ← MediaPipe pose detection model
 ```
@@ -90,7 +99,7 @@ The large Vosk Filipino voice model ships through **Play Asset Delivery** (the `
    |---|---|
    | `akai_model.tflite` | ML repo → `linkfsl-model/models/` |
    | `actions.txt` | ML repo → `linkfsl-model/models/` |
-   | `sequence_length.txt` | ML repo → `linkfsl-model/models/` (value **106**) |
+   | `sequence_length.txt` | ML repo → `linkfsl-model/models/` (value **120**) |
    | `hand_landmarker.task` | MediaPipe (see below) |
    | `pose_landmarker.task` | MediaPipe (see below) |
 
@@ -111,14 +120,25 @@ Release builds are signed from a `keystore.properties` file at the repo root (gi
 
 The LSTM model (`akai_model.tflite`) is trained in the companion ML repo and exported to TFLite.
 
-- **Input:** `[1, SEQUENCE_LENGTH, 156]` — a sequence of 156-element keypoint vectors (SEQUENCE_LENGTH = 106).
+- **Input:** `[1, SEQUENCE_LENGTH, 156]` — a sequence of 156-element keypoint vectors (SEQUENCE_LENGTH = 120).
 - **Feature vector (156 per frame):**
   - Left hand — 21 landmarks × 3 = **63** (wrist-centered, scale-normalized)
   - Right hand — 21 landmarks × 3 = **63**
   - Upper pose — nose + shoulders + left elbow × 3 = **12** (nose-centered)
   - Finger geometry — **18** (9 per hand: 5 finger-curl + 4 fingertip-spread distances)
 - **Architecture:** LSTM 64 → 128 → 64 → Dense 128 → Dense(N) softmax.
-- **Classes:** 50 total — 26 FSL alphabet letters + 24 word signs.
+- **Classes:** **64 total** — 26 FSL alphabet letters + 38 word signs (greetings/phrases, 12 colors, and *father* / *mother*).
+
+### Accuracy
+
+Measured on the same 64-class model, reported with two standard measures:
+
+| Measure | Accuracy | Meaning |
+|---|---|---|
+| Signer-dependent (same-signer) | **99.1%** | Confirms the model trains and converges correctly (not real-world). |
+| Signer-independent (LOSO) | **72.5%** | Real-world generalization to users the model has never seen, via Leave-One-Signer-Out cross-validation. This is the honest headline figure. |
+
+> Signer-independent accuracy in the low-to-mid 70s is consistent with published FSL/sign-recognition benchmarks (e.g. LSA64 ≈ 74%, KArSL-100 ≈ 68% at 100 classes). Number signs (1–10) were evaluated but **deferred to future work (IT333)** because FSL numeral signs share handshapes and showed high inter-signer confusion.
 
 > The feature-extraction logic in `FSLRecognitionService.kt` **must stay identical** to the ML repo's `dataset_builder.py` / `live_recognizer.py`. A mismatch silently breaks live inference even at high validation accuracy.
 
@@ -129,6 +149,18 @@ The LSTM model (`akai_model.tflite`) is trained in the companion ML repo and exp
 - **Physical ARM64 device required** — MediaPipe does not work on x86_64 emulators.
 - **Model files are git-ignored** — copy them in manually as shown above.
 - **After retraining**, replace `akai_model.tflite`, `actions.txt`, and `sequence_length.txt` and confirm the feature vector / sequence length still match the Kotlin constants.
+
+---
+
+## Version History (recent)
+
+| Version | Highlights |
+|---|---|
+| **1.8.3** | Model expanded 50 → **64 classes** (added 12 colors + *father* / *mother*; numbers deferred to IT333). Sequence length 106 → 120. Filipino (Tagalog) STT preloads at startup; fixed Tagalog model load timeout on slower phones. |
+| 1.8.2 | Tagalog speech-model load-timeout fix for slower devices. |
+| earlier | Resizable conversation box, confidence cues, text-size setting; two-device Nearby sync; fingerspelling word assembly. |
+
+See the [commit history](https://github.com/Desiigner101/AkAI-Android/commits/master) and merged pull requests (#5, #6) for full refactoring evidence.
 
 ---
 
